@@ -1,5 +1,5 @@
 const CACHE = 'kurilka-static-dev';
-const PRECACHE = ['/', '/manifest.webmanifest', '/icon.svg', '/privacy.html', '/terms.html'];
+const PRECACHE = ['/', '/manifest.webmanifest', '/brand/luma-mark.svg', '/privacy.html', '/terms.html'];
 
 self.addEventListener('install', event => {
   event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(PRECACHE)).then(() => self.skipWaiting()));
@@ -38,5 +38,5 @@ self.addEventListener('fetch', event => {
 
 self.addEventListener('push', event => {
   const text = event.data ? event.data.text() : 'Открой «Последнюю пачку», чтобы продолжить план.';
-  event.waitUntil(self.registration.showNotification('Последняя пачка', { body: text, icon: '/icon.svg', tag: 'kurilka-support' }));
+  event.waitUntil(self.registration.showNotification('Luma', { body: text, icon: '/brand/luma-mark.svg', tag: 'kurilka-support' }));
 });

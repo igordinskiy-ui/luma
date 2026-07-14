@@ -27,7 +27,7 @@ services:
       retries: 20
     networks: [data]
   migrate:
-    image: kurilka-api:local
+    image: luma-api:local
     build: ./apps/api
     command: alembic upgrade head
     environment:
@@ -37,7 +37,7 @@ services:
         condition: service_healthy
     networks: [data]
   api:
-    image: kurilka-api:local
+    image: luma-api:local
     build: ./apps/api
     environment:
       DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg://kurilka:change-me@db:5432/kurilka}
@@ -46,6 +46,7 @@ services:
       TELEGRAM_WEBAPP_URL: ${TELEGRAM_WEBAPP_URL:-http://localhost:5173}
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5173}
       APP_ENVIRONMENT: ${APP_ENVIRONMENT:-development}
+      PUBLIC_LAUNCH_ENABLED: ${PUBLIC_LAUNCH_ENABLED:-false}
       SESSION_SECRET: ${SESSION_SECRET:-}
       TELEGRAM_WEBHOOK_SECRET: ${TELEGRAM_WEBHOOK_SECRET:-}
       TELEGRAM_AUTH_MAX_AGE_SECONDS: ${TELEGRAM_AUTH_MAX_AGE_SECONDS:-900}
@@ -86,7 +87,7 @@ services:
     # but it cannot be reached from the stateful data network.
     networks: [app, data, egress]
   web:
-    image: kurilka-web:local
+    image: luma-web:local
     build: ./apps/web
     ports: ["5173:80"]
     depends_on: [api]
@@ -97,7 +98,7 @@ services:
       retries: 12
     networks: [edge, app]
   worker:
-    image: kurilka-api:local
+    image: luma-api:local
     build: ./apps/api
     command: python -m app.worker
     environment:
@@ -105,6 +106,7 @@ services:
       REDIS_URL: ${REDIS_URL:-redis://:change-me@redis:6379/0}
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
       APP_ENVIRONMENT: ${APP_ENVIRONMENT:-development}
+      PUBLIC_LAUNCH_ENABLED: ${PUBLIC_LAUNCH_ENABLED:-false}
       SESSION_SECRET: ${SESSION_SECRET:-}
       TELEGRAM_WEBHOOK_SECRET: ${TELEGRAM_WEBHOOK_SECRET:-}
       VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}

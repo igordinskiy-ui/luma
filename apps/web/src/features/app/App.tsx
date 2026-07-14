@@ -50,7 +50,10 @@ export function App({ initialScreen = 'home' }: { initialScreen?: AppScreen }) {
       catch { setState('auth'); return; }
       if (authToken()) { await refresh(); return; }
       if (!telegram?.initData) { setState('landing'); return; }
-      authenticate(telegram.initData).then(refresh).catch(() => setState('auth'));
+      authenticate(telegram.initData).then(refresh).catch(async () => {
+        try { setState((await api.launchStatus()).public_launch_enabled ? 'auth' : 'maintenance'); }
+        catch { setState('auth'); }
+      });
     };
     void bootstrap();
     const reportCrash = () => {
@@ -74,7 +77,7 @@ export function App({ initialScreen = 'home' }: { initialScreen?: AppScreen }) {
   if (state === 'auth') return <main className="path-page path-state-page"><span className="path-logo-large">П</span><h1>Не удалось войти</h1><p>Открой помощника через Telegram-бота или обнови Mini App.</p>{supportCode}<a className="path-button primary" href="/">Попробовать ещё раз</a></main>;
   if (state === 'offline') return <main className="path-page path-state-page"><span className="path-logo-large">П</span><h1>Сейчас нет сети</h1><p>Честные отметки и начатые паузы останутся на устройстве. Подключись к сети и продолжи.</p><button className="path-button primary" type="button" onClick={refresh}>Проверить соединение</button></main>;
   if (state === 'rate') return <main className="path-page path-state-page"><span className="path-logo-large">П</span><h1>Нужна короткая пауза</h1><p>Запросов было слишком много. Подожди минуту — введённые данные не очищены.</p>{supportCode}<button className="path-button primary" type="button" onClick={refresh}>Повторить</button></main>;
-  if (state === 'maintenance') return <main className="path-page path-state-page"><span className="path-logo-large">П</span><h1>Обновляем сервис</h1><p>Сервер временно недоступен. Мы не просим вводить данные заново.</p>{supportCode}<button className="path-button primary" type="button" onClick={refresh}>Проверить статус</button></main>;
+  if (state === 'maintenance') return <main className="path-page path-state-page"><span className="path-logo-large">П</span><h1>Готовим запуск</h1><p>Сервис уже развёрнут, но вход пока закрыт. Мы откроем его после завершения проверок контента и документов.</p>{supportCode}<a className="path-button primary" href="/">На главную</a></main>;
   if (state === 'error') return <main className="path-page path-state-page"><span className="path-logo-large">П</span><h1>Не получилось открыть путь</h1><p>Попробуй ещё раз. Если ошибка повторяется, отправь обращение без медицинских и личных подробностей.</p>{supportCode}<button className="path-button primary" type="button" onClick={refresh}>Повторить</button><a href="/feedback">Обратная связь</a></main>;
   if (state === 'consent') return <ConsentRenewal onDone={refresh} legalVersion={legalIdentity.version} legalDigest={legalIdentity.digest} />;
   if (state === 'onboarding') return <Onboarding onDone={refresh} legalVersion={legalIdentity.version} legalDigest={legalIdentity.digest} />;

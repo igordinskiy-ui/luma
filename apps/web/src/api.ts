@@ -22,6 +22,7 @@ export type AdminOverview = { filters: { period: string; source: string | null }
 export type AdminFeedback = { id: number; category: 'bug' | 'idea' | 'support' | 'content'; body: string; status: 'open' | 'resolved'; created_at: string; resolved_at?: string };
 type Session = { access_token: string; token_type: string; user_id: number };
 export type Bootstrap = { age_confirmed: boolean; consent_current: boolean; onboarded: boolean; legal_documents_version?: string; legal_documents_digest?: string };
+export type LaunchStatus = { public_launch_enabled: boolean };
 
 export const eventId = () => crypto.randomUUID();
 export const authToken = () => sessionStorage.getItem(tokenKey);
@@ -100,6 +101,7 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
 }
 
 export const api = {
+  launchStatus: () => request<LaunchStatus>('/launch-status'),
   bootstrap: () => request<Bootstrap>('/bootstrap'),
   dashboard: () => request<Dashboard>('/dashboard'),
   quitPlan: () => request<QuitPlan>('/quit-plan'),

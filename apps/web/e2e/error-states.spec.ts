@@ -4,7 +4,7 @@ import { expect, test } from '@playwright/test';
 const states = [
   { status: 401, heading: 'Не удалось войти', code: 'session_expired' },
   { status: 429, heading: 'Нужна короткая пауза', code: 'rate_limited' },
-  { status: 503, heading: 'Обновляем сервис', code: 'maintenance' },
+  { status: 503, heading: 'Готовим запуск', code: 'maintenance' },
   { status: 500, heading: 'Не получилось открыть путь', code: 'internal_error' },
 ] as const;
 

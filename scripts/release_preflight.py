@@ -38,14 +38,18 @@ def public_origin(value: str) -> str | None:
 def main() -> int:
     env = os.environ
     errors: list[str] = []
+    launch_value = env.get("PUBLIC_LAUNCH_ENABLED", "false").strip().lower()
+    if launch_value not in {"true", "false"}:
+        fail(errors, "PUBLIC_LAUNCH_ENABLED must be true or false")
+    public_launch = launch_value == "true"
 
     if env.get("APP_ENVIRONMENT") != "production":
         fail(errors, "APP_ENVIRONMENT must be production")
 
-    for name, minimum in (("SESSION_SECRET", 32), ("PROXY_SHARED_SECRET", 32), ("TELEGRAM_WEBHOOK_SECRET", 24), ("REDIS_PASSWORD", 32)):
+    for name, minimum in (("SESSION_SECRET", 32), ("PROXY_SHARED_SECRET", 32), ("REDIS_PASSWORD", 32)):
         if len(env.get(name, "")) < minimum:
             fail(errors, f"{name} must contain at least {minimum} characters")
-    for name in ("DOMAIN", "TELEGRAM_BOT_TOKEN", "DATABASE_URL", "REDIS_URL"):
+    for name in ("DOMAIN", "DATABASE_URL", "REDIS_URL"):
         if not env.get(name) or "change-me" in env[name]:
             fail(errors, f"{name} must be configured with a non-default value")
 
@@ -69,23 +73,28 @@ def main() -> int:
         if redirect.scheme != "https" or redirect_origin not in origins or redirect.path != "/api/v1/auth/oidc/callback" or redirect.query or redirect.fragment:
             fail(errors, "TELEGRAM_OIDC_REDIRECT_URI must use the public origin and /api/v1/auth/oidc/callback")
 
-    if env.get("CONTENT_REVIEW_STATUS") != "approved":
-        fail(errors, "CONTENT_REVIEW_STATUS must be approved")
-    if env.get("CONTENT_APPROVED_DIGEST") != release_content_digest():
-        fail(errors, "CONTENT_APPROVED_DIGEST must match all reviewed production copy")
-    if env.get("CONTENT_CATALOGUE_DIGEST") != CONTENT_DIGEST:
-        fail(errors, "CONTENT_CATALOGUE_DIGEST must match the runtime API catalogue")
-    if env.get("LEGAL_DOCUMENTS_STATUS") != "approved":
-        fail(errors, "LEGAL_DOCUMENTS_STATUS must be approved")
     version = env.get("LEGAL_DOCUMENTS_VERSION", "")
-    if not version or version == "template" or PLACEHOLDER_PREFIX in version:
-        fail(errors, "LEGAL_DOCUMENTS_VERSION must identify approved documents")
-    if env.get("LEGAL_DOCUMENTS_DIGEST") != legal_documents_digest():
-        fail(errors, "LEGAL_DOCUMENTS_DIGEST must match the committed privacy policy and terms")
+    if public_launch:
+        if len(env.get("TELEGRAM_WEBHOOK_SECRET", "")) < 24:
+            fail(errors, "TELEGRAM_WEBHOOK_SECRET must contain at least 24 characters")
+        if not env.get("TELEGRAM_BOT_TOKEN") or "change-me" in env["TELEGRAM_BOT_TOKEN"]:
+            fail(errors, "TELEGRAM_BOT_TOKEN must be configured before public launch")
+        if env.get("CONTENT_REVIEW_STATUS") != "approved":
+            fail(errors, "CONTENT_REVIEW_STATUS must be approved")
+        if env.get("CONTENT_APPROVED_DIGEST") != release_content_digest():
+            fail(errors, "CONTENT_APPROVED_DIGEST must match all reviewed production copy")
+        if env.get("CONTENT_CATALOGUE_DIGEST") != CONTENT_DIGEST:
+            fail(errors, "CONTENT_CATALOGUE_DIGEST must match the runtime API catalogue")
+        if env.get("LEGAL_DOCUMENTS_STATUS") != "approved":
+            fail(errors, "LEGAL_DOCUMENTS_STATUS must be approved")
+        if not version or version == "template" or PLACEHOLDER_PREFIX in version:
+            fail(errors, "LEGAL_DOCUMENTS_VERSION must identify approved documents")
+        if env.get("LEGAL_DOCUMENTS_DIGEST") != legal_documents_digest():
+            fail(errors, "LEGAL_DOCUMENTS_DIGEST must match the committed privacy policy and terms")
     if env.get("RISK_ENGINE_VERSION") not in {"rules_v1", "baseline"}:
         fail(errors, "RISK_ENGINE_VERSION must be rules_v1 or baseline")
 
-    for page in LEGAL_PAGES:
+    for page in LEGAL_PAGES if public_launch else ():
         try:
             contents = page.read_text(encoding="utf-8")
         except OSError:
@@ -104,7 +113,10 @@ def main() -> int:
         print("Production release preflight failed:", file=sys.stderr)
         print(*[f"- {message}" for message in errors], sep="\n", file=sys.stderr)
         return 1
-    print("Production release preflight passed.")
+    if public_launch:
+        print("Production public-launch preflight passed.")
+    else:
+        print("Production preview preflight passed; public user access and notifications are disabled.")
     return 0
 
 

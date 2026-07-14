@@ -11,7 +11,7 @@ from sqlalchemy import and_, func, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 from .auth import current_user, telegram_auth_context
-from .config import approved_acquisition_sources, settings, validate_security_settings
+from .config import approved_acquisition_sources, public_launch_open, settings, validate_security_settings
 from .db import get_db
 from .models import AnalyticsEvent, BehaviorEvent, ConsentRecord, CopingSession, Entitlement, Feedback, NotificationDelivery, NotificationPreference, OutboxEvent, PushSubscription, QuitAttempt, QuitPlan, User
 from .journey import close_active_attempt, journey_stats, start_attempt
@@ -28,7 +28,7 @@ from .notifications import can_send
 from .schemas import AuthIn, ClientTelemetryIn, ConsentIn, CopingSessionCreateIn, CopingSessionPatchIn, DashboardOut, EventIn, EventOut, EventPatchIn, FeedbackIn, FeedbackStatusIn, OidcCompletionIn, OnboardingIn, PreferencesIn, PushSubscriptionIn, QuitPlanUpdateIn
 from .bot import Bot, handle_update
 
-app = FastAPI(title="Kurilka API", version="0.2.0")
+app = FastAPI(title="Luma API", version="0.2.0")
 app.add_middleware(CORSMiddleware, allow_origins=settings.cors_origins.split(","), allow_credentials=True, allow_methods=["*"], allow_headers=["Authorization", "Content-Type"])
 app.add_middleware(RequestLogMiddleware)
 logger = logging.getLogger("kurilka.api")
@@ -78,6 +78,18 @@ async def limit_request_body(request: Request, call_next):
             return JSONResponse(status_code=413, headers={"X-Request-ID": identifier}, content={"error": {"code": "payload_too_large", "message": "Request body is too large", "request_id": identifier}})
         body.extend(chunk)
     request._body = bytes(body)
+    return await call_next(request)
+
+
+@app.middleware("http")
+async def public_launch_gate(request: Request, call_next):
+    if request.url.path.startswith("/v1/") and request.url.path != "/v1/launch-status" and not public_launch_open():
+        identifier = request_id(request)
+        return JSONResponse(
+            status_code=503,
+            headers={"X-Request-ID": identifier, "Retry-After": "3600"},
+            content={"error": {"code": "public_launch_disabled", "message": "Luma is not open to users yet", "request_id": identifier}},
+        )
     return await call_next(request)
 
 @app.on_event("startup")
@@ -149,6 +161,10 @@ def accept_current_consent(db: Session, user: User, source: str) -> User:
 
 @app.get("/health")
 def health(): return {"status": "ok"}
+
+
+@app.get("/v1/launch-status")
+def launch_status(): return {"public_launch_enabled": public_launch_open()}
 
 @app.get("/ready")
 def ready(db: Session = Depends(get_db)):

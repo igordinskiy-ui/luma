@@ -8,7 +8,7 @@ from aiogram import Bot
 from redis.asyncio import Redis
 from sqlalchemy import and_, delete, or_, select, update
 from pywebpush import WebPushException, webpush
-from .config import settings, validate_security_settings
+from .config import public_launch_open, settings, validate_security_settings
 from .db import SessionLocal
 from .models import AnalyticsEvent, Feedback, NotificationDelivery, OutboxEvent, PushSubscription, QuitPlan, User
 from .notifications import can_send, create_delivery
@@ -96,6 +96,7 @@ async def process_event(bot: Bot | None, event_id: int) -> None:
     finally: db.close()
 
 async def process_once() -> int:
+    if not public_launch_open(): return 0
     if not settings.telegram_bot_token and not settings.vapid_private_key: return 0
     bot = Bot(settings.telegram_bot_token) if settings.telegram_bot_token else None
     try:
@@ -126,6 +127,7 @@ async def process_once() -> int:
 
 def schedule_checkins() -> int:
     """Create at most one deterministic check-in per quit user at 10/15/20 local time."""
+    if not public_launch_open(): return 0
     db = SessionLocal(); created = 0
     try:
         now = datetime.utcnow()

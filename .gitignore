@@ -61,10 +61,6 @@ Desktop.ini
 # Internal research, audit evidence and work-in-progress materials
 security-scan-artifacts/
 instagram-scenarios/
-/journal-edit-mobile.png
-/journey-dashboard-desktop.png
-/journey-dashboard-mobile.png
-/journey-resume-mobile.png
 /docs/CONTENT_REVIEW_CHECKLIST.md
 /docs/DEVICE_UAT_MATRIX.md
 /docs/GO_TO_MARKET_PLAN.md
@@ -82,4 +78,3 @@ instagram-scenarios/
 /docs/SECURITY_SCAN_*.md
 /docs/SECURITY_THREAT_MODEL.md
 /docs/SUPPORT_PLAYBOOK.md
-

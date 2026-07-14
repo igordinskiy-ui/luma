@@ -13,6 +13,7 @@ class Settings(BaseSettings):
     telegram_bot_token: str = ""
     telegram_webapp_url: str = "http://localhost:5173"
     app_environment: str = "development"
+    public_launch_enabled: bool = False
     session_secret: str = ""
     session_ttl_seconds: int = 86400
     development_auth_enabled: bool = False
@@ -63,6 +64,11 @@ def approved_acquisition_sources() -> set[str]:
     return {value.strip() for value in settings.acquisition_sources.split(",") if value.strip()}
 
 
+def public_launch_open() -> bool:
+    """Keep local/test workflows open while production defaults to fail-closed."""
+    return settings.app_environment != "production" or settings.public_launch_enabled
+
+
 def validate_security_settings() -> None:
     if settings.app_environment not in {"development", "test", "production"}:
         raise RuntimeError("APP_ENVIRONMENT must be development, test, or production")
@@ -73,9 +79,7 @@ def validate_security_settings() -> None:
         raise RuntimeError("SESSION_SECRET must contain at least 32 characters")
     if settings.app_environment != "production":
         return
-    if len(settings.telegram_webhook_secret) < 24: raise RuntimeError("TELEGRAM_WEBHOOK_SECRET must contain at least 24 characters")
     if len(settings.proxy_shared_secret) < 32: raise RuntimeError("PROXY_SHARED_SECRET must contain at least 32 characters")
-    if not settings.telegram_bot_token: raise RuntimeError("TELEGRAM_BOT_TOKEN must be configured in production")
     if not settings.database_url.startswith(("postgresql://", "postgresql+psycopg://")) or "change-me" in settings.database_url:
         raise RuntimeError("DATABASE_URL must point to a configured production database")
     if not settings.redis_url or "change-me" in settings.redis_url:
@@ -83,18 +87,6 @@ def validate_security_settings() -> None:
     redis = urlsplit(settings.redis_url)
     if redis.scheme not in {"redis", "rediss"} or len(unquote(redis.password or "")) < 32:
         raise RuntimeError("REDIS_URL must include a Redis password of at least 32 characters in production")
-    if settings.content_review_status != "approved": raise RuntimeError("CONTENT_REVIEW_STATUS must be approved before production launch")
-    from .content import CONTENT_DIGEST
-    if not re.fullmatch(r"[a-f0-9]{64}", settings.content_approved_digest):
-        raise RuntimeError("CONTENT_APPROVED_DIGEST must identify the reviewed production copy")
-    if settings.content_catalogue_digest != CONTENT_DIGEST:
-        raise RuntimeError("CONTENT_CATALOGUE_DIGEST must match the runtime content catalogue")
-    if settings.legal_documents_status != "approved": raise RuntimeError("LEGAL_DOCUMENTS_STATUS must be approved before production launch")
-    placeholder_prefix = "[" * 2
-    if not settings.legal_documents_version or placeholder_prefix in settings.legal_documents_version or settings.legal_documents_version == "template":
-        raise RuntimeError("LEGAL_DOCUMENTS_VERSION must identify the approved public documents")
-    if not re.fullmatch(r"[a-f0-9]{64}", settings.legal_documents_digest):
-        raise RuntimeError("LEGAL_DOCUMENTS_DIGEST must identify the exact approved privacy policy and terms")
     origins = {_public_origin(value.strip()) for value in settings.cors_origins.split(",") if value.strip()}
     if not origins or None in origins:
         raise RuntimeError("CORS_ORIGINS must contain only HTTPS public origins in production")
@@ -112,3 +104,19 @@ def validate_security_settings() -> None:
     if any(not re.fullmatch(r"[A-Za-z0-9_-]{1,64}", value) for value in approved_acquisition_sources()):
         raise RuntimeError("ACQUISITION_SOURCES must contain only short approved campaign codes")
     if settings.risk_engine_version not in {"rules_v1", "baseline"}: raise RuntimeError("RISK_ENGINE_VERSION must be rules_v1 or baseline")
+    if not settings.public_launch_enabled:
+        return
+    if len(settings.telegram_webhook_secret) < 24: raise RuntimeError("TELEGRAM_WEBHOOK_SECRET must contain at least 24 characters")
+    if not settings.telegram_bot_token: raise RuntimeError("TELEGRAM_BOT_TOKEN must be configured before public launch")
+    if settings.content_review_status != "approved": raise RuntimeError("CONTENT_REVIEW_STATUS must be approved before public launch")
+    from .content import CONTENT_DIGEST
+    if not re.fullmatch(r"[a-f0-9]{64}", settings.content_approved_digest):
+        raise RuntimeError("CONTENT_APPROVED_DIGEST must identify the reviewed production copy")
+    if settings.content_catalogue_digest != CONTENT_DIGEST:
+        raise RuntimeError("CONTENT_CATALOGUE_DIGEST must match the runtime content catalogue")
+    if settings.legal_documents_status != "approved": raise RuntimeError("LEGAL_DOCUMENTS_STATUS must be approved before public launch")
+    placeholder_prefix = "[" * 2
+    if not settings.legal_documents_version or placeholder_prefix in settings.legal_documents_version or settings.legal_documents_version == "template":
+        raise RuntimeError("LEGAL_DOCUMENTS_VERSION must identify the approved public documents")
+    if not re.fullmatch(r"[a-f0-9]{64}", settings.legal_documents_digest):
+        raise RuntimeError("LEGAL_DOCUMENTS_DIGEST must identify the exact approved privacy policy and terms")

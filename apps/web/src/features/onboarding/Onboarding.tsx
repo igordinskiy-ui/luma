@@ -71,7 +71,7 @@ export function ConsentRenewal({ onDone, legalVersion, legalDigest }: { onDone: 
   };
 
   return <main className="path-page path-form-page">
-    <header className="path-compact-header"><span className="path-logo-small">П</span><span>Последняя пачка</span></header>
+    <header className="path-compact-header"><img className="path-brand-mark" src="/brand/luma-mark.svg" alt="" /><span>Luma</span></header>
     <section className="path-form-intro"><span className="path-kicker">Обновление документов</span><h1>Твой путь сохранён.<br />Подтверди условия.</h1><p>Мы обновили документы. План и все записи останутся на месте.</p></section>
     <form className="path-form-card" onSubmit={submit}>
       <ConsentProof legalVersion={legalVersion} legalDigest={legalDigest} />
@@ -134,7 +134,7 @@ export function Onboarding({ onDone, legalVersion, legalDigest }: { onDone: () =
     : startModeLabels[draft.startMode];
 
   return <main className="path-page path-form-page path-onboarding">
-    <header className="path-compact-header"><span className="path-logo-small">П</span><span>Последняя пачка</span><small>Шаг {step + 1} из 4</small></header>
+    <header className="path-compact-header"><img className="path-brand-mark" src="/brand/luma-mark.svg" alt="" /><span>Luma</span><small>Шаг {step + 1} из 4</small></header>
     <div className="path-stepper" aria-hidden="true">{[0, 1, 2, 3].map(item => <i key={item} className={item <= step ? 'active' : ''} />)}</div>
     <section className="path-form-intro"><span className="path-kicker">{['Точка старта', 'Твой контекст', 'Личная причина', 'Всё готово'][step]}</span><h1>{['Где начинается твой путь?', 'Добавим только нужные числа', 'Что делает этот путь твоим?', 'Первый шаг уже сделан'][step]}</h1><p>{['Выбери состояние, которое честно описывает сегодняшний день.', 'Они нужны для твоего плана и понятных расчётов.', 'Эту фразу можно будет увидеть в сложный момент. Поле необязательно.', 'Проверь данные и подтверди условия. Всё можно изменить позже.'][step]}</p></section>
     <form className="path-form-card" onSubmit={submit}>

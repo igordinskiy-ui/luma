@@ -1,27 +1,122 @@
-# Kurilka — «Последняя пачка»
+<div align="center">
+  <img src="apps/web/public/brand/luma-logo.svg" alt="Luma" width="180" />
+  <h1>Luma</h1>
+  <p><strong>Спокойный цифровой помощник на пути к жизни без сигарет.</strong></p>
+  <p>Без стыда, давления и обещаний невозможного — только следующий честный шаг.</p>
 
-MVP сервиса поддержки отказа от сигарет: Telegram-бот для коммуникации и единый React-клиент, работающий как Telegram Mini App и PWA.
+  [![CI](https://github.com/igordinskiy-ui/luma/actions/workflows/ci.yml/badge.svg)](https://github.com/igordinskiy-ui/luma/actions/workflows/ci.yml)
+  ![Python 3.12](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)
+  ![React 19](https://img.shields.io/badge/React-19-20232A?logo=react)
+  ![Docker Compose](https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker&logoColor=white)
+</div>
 
-## Быстрый запуск
+![Главный экран Luma](journey-dashboard-desktop.png)
 
-1. Скопируйте `.env.example` в `.env`; для production заполните `SESSION_SECRET`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_WEBHOOK_SECRET`, `PROXY_SHARED_SECRET` и `REDIS_PASSWORD` уникальными случайными значениями, а затем укажите пароль в URL-кодированном виде в `REDIS_URL`.
-2. Выполните `docker compose up --build`.
-3. API доступен по `http://localhost:8000/docs`, веб-клиент — по `http://localhost:5173`.
+## О продукте
 
-Для локальной разработки без Docker используйте Python 3.12 (версия зафиксирована в `.python-version`): в `apps/api` установите зависимости `python -m pip install -r requirements.txt pytest` и примените `alembic upgrade head`; в `apps/web` — `npm ci`. Полная проверка клиента: `npm test && npm run test:e2e`.
+Luma помогает пройти путь от последней пачки к устойчивой жизни без сигарет. Продукт соединяет Telegram Mini App и устанавливаемое PWA: человек может быстро отметить тягу или сигарету, получить короткую поддержку, увидеть накопленный прогресс и продолжить путь после сложного дня без ощущения, что всё потеряно.
 
-## Production deployment
+Это не медицинское приложение и не замена врачу. Luma не ставит диагнозы, не назначает лечение и не гарантирует отказ от курения. Продукт создаёт бережную среду для самонаблюдения и небольших поведенческих действий.
 
-Задайте `DOMAIN`, production secrets и допуски `CONTENT_REVIEW_STATUS=approved` и `LEGAL_DOCUMENTS_STATUS=approved` (только после реального согласования контента и документов), затем запустите `docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d`. Production override публикует только Caddy с HTTPS; PostgreSQL, Redis и API остаются во внутренней Docker-сети. Полный перечень переменных — в [production contract](docs/PRODUCTION_ENVIRONMENT.md), порядок запуска — в [runbook](docs/OPERATIONS_RUNBOOK.md).
+## Что умеет Luma
 
-При деплое на VPS через GitHub храните SSH-ключи и production-секреты только в GitHub Environments/Secrets или в защищённом `.env` на сервере. Файл `.env` и приватные ключи не должны попадать в Git; в репозитории хранится только шаблон `.env.example`.
+| Возможность | Что получает пользователь |
+| --- | --- |
+| **Личный маршрут** | Подготовка, последняя пачка, отказ, пауза и возвращение без обнуления истории. |
+| **Помощь в момент тяги** | Короткий сценарий на несколько минут: спокойный выдох, вода или смена пространства. |
+| **Честный прогресс** | Время без сигарет, лучший период, количество невыкуренных сигарет и сэкономленные деньги. |
+| **Журнал** | Хронология сигарет, тяги, триггеров и поддерживающих пауз без преждевременных выводов. |
+| **Telegram + PWA** | Быстрый вход из Telegram и полноценный адаптивный веб-интерфейс с offline-поддержкой. |
+| **Приватность по умолчанию** | Экспорт и удаление данных, версионированное согласие, минимизация аналитики и ограниченные сроки хранения. |
 
-## UX/UI: «Путь»
+<div align="center">
+  <img src="journey-dashboard-mobile.png" alt="Мобильный экран прогресса" width="300" />
+  &nbsp;&nbsp;
+  <img src="journey-resume-mobile.png" alt="Возвращение к пути после паузы" width="300" />
+</div>
 
-Основным и единственным интерфейсным стилем выбран **«Путь»**: тёплый редакционный визуальный язык, видимый прогресс без обнуления и короткие поддерживающие действия. Альтернативные UI-концепты удалены из пользовательского интерфейса и не должны возвращаться как темы или переключатели оформления.
+## Принципы продукта
 
-Правила визуального языка, UX-паттерны, токены, компоненты и требования accessibility зафиксированы в [ADR-002](docs/ADR-002-path-design-system.md). После `npm run dev` текущий интерактивный прототип доступен по `/?designs` до удаления галереи из реализации.
+- **История не обнуляется.** Сложный день или новая попытка не стирают уже пройденное.
+- **Действие важнее оценки.** Вместо красных предупреждений пользователь получает один выполнимый шаг.
+- **Данные не притворяются выводами.** Журнал показывает наблюдения только тогда, когда их достаточно.
+- **Безопасность — часть сценария.** Production запускается закрытым по умолчанию, а публичный доступ требует отдельных content/legal gate-ов.
+- **Один визуальный язык.** Тёплая редакционная эстетика «Путь» работает одинаково в Telegram, PWA, на телефоне и десктопе.
 
-## Границы продукта
+## Как устроено
 
-Сервис является немедицинским помощником: он помогает отслеживать привычки и применять короткие поведенческие техники, но не ставит диагнозов и не назначает лечение. Сервис носит исключительно информационно-поддерживающий характер и не обещает и не гарантирует результата, включая отказ от курения в какой-либо срок или отсутствие срывов.
+```text
+Telegram Mini App / PWA
+          │
+      Caddy + HTTPS
+          │
+   React/Vite ── FastAPI
+                    │
+          PostgreSQL + Redis
+                    │
+          outbox worker → Telegram / Web Push
+```
+
+- `apps/web` — React 19, TypeScript, Vite, Vitest и Playwright.
+- `apps/api` — FastAPI, SQLAlchemy, Alembic, PostgreSQL и Redis.
+- `deploy` — Caddy и production-настройки reverse proxy.
+- `.github/workflows/ci.yml` — тесты, сборка, dependency/secret/config scans и проверка контейнеров.
+
+Архитектура разделяет публичный edge, приложение, stateful-сервисы и исходящий трафик. Production-контейнеры запускаются read-only, без лишних capabilities; PostgreSQL и Redis не публикуются наружу.
+
+## Локальный запуск
+
+Требуются Docker и Docker Compose.
+
+```bash
+cp .env.example .env
+docker compose up --build
+```
+
+После запуска:
+
+- веб-приложение — `http://localhost:5173`;
+- OpenAPI — `http://localhost:8000/docs`;
+- health-check — `http://localhost:8000/health`.
+
+Для разработки без Docker используются Python 3.12 и Node.js 22:
+
+```bash
+cd apps/api && python -m pip install -r requirements.txt pytest
+cd apps/web && npm ci && npm test && npm run build
+```
+
+## Production и первый VPS-деплой
+
+Production имеет два явных режима:
+
+1. `PUBLIC_LAUNCH_ENABLED=false` — безопасный preview для первого деплоя. HTTPS, БД, Redis, миграции, landing page и health-checks работают, но пользовательский API, вход и уведомления закрыты.
+2. `PUBLIC_LAUNCH_ENABLED=true` — публичный запуск. Он разрешён только после утверждения пользовательского контента и юридических документов с точным совпадением digest-значений.
+
+Перед развёртыванием выполните:
+
+```bash
+python scripts/release_preflight.py
+docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+```
+
+Секреты не хранятся в Git. Для GitHub → VPS deployment используйте GitHub Environments/Secrets и защищённый `.env` на сервере. Полный контракт переменных находится в [Production environment](docs/PRODUCTION_ENVIRONMENT.md), пошаговые операции — в [Operations runbook](docs/OPERATIONS_RUNBOOK.md).
+
+> Публичный запуск пока намеренно закрыт: контент ожидает профильного review, а политика конфиденциальности и условия — утверждения владельцем и юридической проверки. Инфраструктурный preview можно разворачивать уже сейчас.
+
+## Качество
+
+Репозиторий содержит unit-, integration- и end-to-end тесты, accessibility-проверки, offline/error-state сценарии, миграции и release preflight. CI также проверяет закрепление GitHub Actions по commit SHA, зависимости, секреты, misconfiguration и container images.
+
+## Документация
+
+- [Production environment](docs/PRODUCTION_ENVIRONMENT.md)
+- [Operations runbook](docs/OPERATIONS_RUNBOOK.md)
+- [Release checklist](docs/RELEASE_CHECKLIST.md)
+- [Authentication ADR](docs/ADR-001-authentication.md)
+- [Design system ADR](docs/ADR-002-path-design-system.md)
+- [Telegram setup](docs/TELEGRAM_SETUP.md)
+
+---
+
+<div align="center"><strong>Luma помогает не начинать заново — а продолжать с опытом.</strong></div>

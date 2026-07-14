@@ -5,11 +5,16 @@ the incident/deploy ID, owner, timestamps and evidence for every execution.
 
 ## Deploy and rollback
 
-1. Build and test the tagged image in CI; record the immutable image reference and approved change.
+1. Build and test the tagged image in CI; record the immutable image reference and approved change. For the first infrastructure deployment keep `PUBLIC_LAUNCH_ENABLED=false`.
 2. Verify a successful backup within the owner-approved freshness SLO, its checksum, storage encryption and the last successful restore drill.
 3. Apply `alembic upgrade head`, deploy API and worker, then check `/health` and `/ready`.
 4. Complete the production smoke test from `PRODUCTION_ENVIRONMENT.md`, including export and deletion of a synthetic account.
 5. If health checks fail, stop the rollout, restore the previous image and assess migration compatibility. Do not run `alembic downgrade` unless reversibility is explicitly confirmed and the change owner approves it.
+
+The closed preview is successful only when `/health` and `/ready` pass while
+`/api/v1/launch-status` reports `false` and protected `/api/v1/*` routes return
+503. Do not configure the Telegram webhook or invite users until the public
+preflight passes with `PUBLIC_LAUNCH_ENABLED=true`.
 
 ## Telegram webhook
 

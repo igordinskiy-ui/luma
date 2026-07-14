@@ -5,6 +5,7 @@ from app.content import CONTENT_DIGEST
 
 def set_valid_production(monkeypatch):
     monkeypatch.setattr(settings, "app_environment", "production")
+    monkeypatch.setattr(settings, "public_launch_enabled", True)
     monkeypatch.setattr(settings, "session_secret", "x" * 32)
     monkeypatch.setattr(settings, "telegram_webhook_secret", "x" * 24)
     monkeypatch.setattr(settings, "telegram_bot_token", "test-bot-token")
@@ -68,6 +69,20 @@ def test_production_requires_approved_legal_documents(monkeypatch):
     monkeypatch.setattr(settings, "legal_documents_status", "template")
     with pytest.raises(RuntimeError, match="LEGAL_DOCUMENTS_STATUS"):
         validate_security_settings()
+
+
+def test_closed_production_preview_does_not_fake_public_approvals(monkeypatch):
+    set_valid_production(monkeypatch)
+    monkeypatch.setattr(settings, "public_launch_enabled", False)
+    monkeypatch.setattr(settings, "telegram_bot_token", "")
+    monkeypatch.setattr(settings, "telegram_webhook_secret", "")
+    monkeypatch.setattr(settings, "content_review_status", "draft")
+    monkeypatch.setattr(settings, "content_approved_digest", "")
+    monkeypatch.setattr(settings, "content_catalogue_digest", "")
+    monkeypatch.setattr(settings, "legal_documents_status", "template")
+    monkeypatch.setattr(settings, "legal_documents_version", "")
+    monkeypatch.setattr(settings, "legal_documents_digest", "")
+    validate_security_settings()
 
 
 def test_production_binds_approval_to_exact_content_catalogue(monkeypatch):
