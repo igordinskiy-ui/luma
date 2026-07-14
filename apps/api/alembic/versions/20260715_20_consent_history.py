@@ -31,7 +31,7 @@ def upgrade():
         """INSERT INTO consent_records
         (user_id, document_version, document_digest, source, age_confirmed, accepted_at)
         SELECT id, consent_version, '', 'legacy',
-               CASE WHEN age_confirmed_at IS NULL THEN 0 ELSE 1 END,
+               CASE WHEN age_confirmed_at IS NULL THEN false ELSE true END,
                consented_at
         FROM users
         WHERE consented_at IS NOT NULL"""
