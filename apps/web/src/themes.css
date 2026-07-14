@@ -1,0 +1,53 @@
+:root {
+  --path-ink: #4e3028;
+  --path-ink-strong: #35201a;
+  --path-muted: #70534a;
+  --path-canvas: #f5ede4;
+  --path-surface: #fffaf3;
+  --path-surface-soft: #eadbce;
+  --path-primary: #9f442f;
+  --path-primary-dark: #562f27;
+  --path-accent: #e5a66c;
+  --path-support: #647b61;
+  --path-support-soft: #d9e2d3;
+  --path-border: #d9c3b5;
+  --path-danger: #9b3f36;
+  --path-shadow: 0 14px 38px rgba(78, 48, 40, 0.11);
+  --path-radius-sm: 12px;
+  --path-radius-md: 18px;
+  --path-radius-lg: 28px;
+}
+
+body[data-design="path"] {
+  background: var(--path-canvas);
+  color: var(--path-ink);
+}
+
+.error,
+.danger-text {
+  color: var(--path-danger);
+}
+
+.login {
+  display: inline-flex;
+  text-decoration: none;
+}
+
+.staff-dashboard .metrics {
+  grid-template-columns: repeat(2, 1fr);
+  margin: 16px 0;
+}
+
+.feedback-item {
+  border-top: 1px solid var(--path-border);
+  padding: 14px 0;
+}
+
+.feedback-item:first-of-type {
+  border-top: 0;
+}
+
+.feedback-item .secondary {
+  display: block;
+  margin-top: 10px;
+}

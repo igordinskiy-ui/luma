@@ -1,0 +1,91 @@
+.path-event-meta {
+  display: flex;
+  min-width: 70px;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.path-event-meta button {
+  min-height: 44px;
+  border: 0;
+  background: transparent;
+  color: var(--path-primary);
+  padding: 0;
+  font-size: 12px;
+  font-weight: 800;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.path-edit-policy {
+  margin: 0 0 14px;
+  padding: 0 2px;
+  color: var(--path-muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.path-edit-dialog > label {
+  display: block;
+  margin: 16px 0;
+  color: var(--path-ink);
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.path-edit-dialog select,
+.path-edit-dialog textarea {
+  width: 100%;
+  margin-top: 8px;
+  padding: 13px 14px;
+  border: 1px solid var(--path-border);
+  border-radius: var(--path-radius-sm);
+  background: #fffdf9;
+  color: var(--path-ink);
+  font-size: 16px;
+}
+
+.path-edit-dialog textarea {
+  min-height: 100px;
+  resize: vertical;
+}
+
+.path-edit-dialog input[type='range'] {
+  width: 100%;
+  min-height: 44px;
+  margin-top: 6px;
+  accent-color: var(--path-primary);
+}
+
+.path-edit-dialog > .path-button {
+  width: 100%;
+}
+.path-remove-event {
+  width: 100%;
+  min-height: 44px;
+  margin-top: 10px;
+  border: 0;
+  background: transparent;
+  color: #8b3128;
+  font-weight: 800;
+  text-decoration: underline;
+  cursor: pointer;
+}
+.path-delete-confirm p {
+  color: var(--path-muted);
+  line-height: 1.55;
+}
+.path-delete-confirm .path-button {
+  width: 100%;
+  margin-top: 10px;
+}
+.path-button.danger {
+  background: #8b3128;
+  color: #fff;
+}
+.path-event-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}

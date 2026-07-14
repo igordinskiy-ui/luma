@@ -1,0 +1,40 @@
+{$DOMAIN} {
+  encode zstd gzip
+  request_body {
+    max_size 256KB
+  }
+  header {
+    X-Content-Type-Options nosniff
+    Referrer-Policy strict-origin-when-cross-origin
+    Permissions-Policy "camera=(), geolocation=(), microphone=(), payment=()"
+    Strict-Transport-Security "max-age=31536000; includeSubDomains"
+    # The app is embedded by Telegram, while all executable assets and API
+    # calls remain same-origin. Inline styles are retained for legal pages and
+    # Telegram theme CSS variables; scripts are never allowed inline.
+    Content-Security-Policy "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'self' https://web.telegram.org https://*.telegram.org; form-action 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https://api.telegram.org; manifest-src 'self'; worker-src 'self' blob:"
+  }
+  # Internal metrics are available only by direct application-network access.
+  # Never forward this namespace from the public edge: Caddy itself owns the
+  # proxy proof header used by the API.
+  @publicInternal path /api/internal/*
+  respond @publicInternal 404
+  # The browser uses /api/v1. Strip only the public /api prefix so the API
+  # retains its documented /v1 routes and always receives Caddy's trusted
+  # client address plus proxy proof for rate limiting.
+  handle_path /api/* {
+    reverse_proxy api:8000 {
+      header_up -X-Real-IP
+      header_up X-Real-IP {remote_host}
+      header_up X-Kurilka-Proxy {$PROXY_SHARED_SECRET}
+    }
+  }
+  reverse_proxy /health api:8000
+  reverse_proxy /ready api:8000
+  # Telegram calls the webhook at its canonical /v1 URL rather than /api/v1.
+  reverse_proxy /v1/* api:8000 {
+    header_up -X-Real-IP
+    header_up X-Real-IP {remote_host}
+    header_up X-Kurilka-Proxy {$PROXY_SHARED_SECRET}
+  }
+  reverse_proxy web:80
+}
