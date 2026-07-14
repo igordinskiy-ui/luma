@@ -105,3 +105,22 @@ jobs:
           severity: CRITICAL,HIGH
           ignore-unfixed: true
           exit-code: '1'
+
+  deploy-production:
+    needs: [api, web, containers, repository-security]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && vars.LUMA_DEPLOY_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: production
+    steps:
+      - name: Deploy the tested revision
+        env:
+          DEPLOY_HOST: ${{ secrets.LUMA_DEPLOY_HOST }}
+          DEPLOY_KEY: ${{ secrets.LUMA_DEPLOY_KEY }}
+          KNOWN_HOSTS: ${{ secrets.LUMA_DEPLOY_KNOWN_HOSTS }}
+        run: |
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$DEPLOY_KEY" > ~/.ssh/id_ed25519
+          printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/id_ed25519 ~/.ssh/known_hosts
+          ssh -i ~/.ssh/id_ed25519 -o BatchMode=yes -o StrictHostKeyChecking=yes "luma-deploy@$DEPLOY_HOST" "$GITHUB_SHA"
