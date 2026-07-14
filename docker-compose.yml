@@ -92,7 +92,7 @@ services:
     ports: ["5173:80"]
     depends_on: [api]
     healthcheck:
-      test: ["CMD-SHELL", "wget -q -O /dev/null http://localhost/ || exit 1"]
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1/ || exit 1"]
       interval: 10s
       timeout: 3s
       retries: 12
@@ -105,6 +105,8 @@ services:
       DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg://kurilka:change-me@db:5432/kurilka}
       REDIS_URL: ${REDIS_URL:-redis://:change-me@redis:6379/0}
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      TELEGRAM_WEBAPP_URL: ${TELEGRAM_WEBAPP_URL:-http://localhost:5173}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5173}
       APP_ENVIRONMENT: ${APP_ENVIRONMENT:-development}
       PUBLIC_LAUNCH_ENABLED: ${PUBLIC_LAUNCH_ENABLED:-false}
       SESSION_SECRET: ${SESSION_SECRET:-}
