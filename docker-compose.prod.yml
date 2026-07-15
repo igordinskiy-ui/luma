@@ -43,6 +43,9 @@ services:
     read_only: true
     tmpfs: ["/var/cache/nginx:uid=101,gid=101,mode=0750,size=32m", "/tmp:uid=101,gid=101,mode=0750,size=4m"]
     cap_drop: [ALL]
+    # Docker's namespaced low-port setting lets the unprivileged nginx user
+    # retain the established web:80 service contract without Linux capabilities.
+    sysctls: ["net.ipv4.ip_unprivileged_port_start=0"]
     security_opt: ["no-new-privileges:true"]
     deploy:
       resources:

@@ -11,4 +11,4 @@ RUN apk upgrade --no-cache \
     && sed -i 's|^pid .*|pid /tmp/nginx.pid;|' /etc/nginx/nginx.conf \
     && chown -R nginx:nginx /usr/share/nginx/html /var/cache/nginx /var/run /etc/nginx/conf.d
 USER nginx
-EXPOSE 8080
+EXPOSE 80

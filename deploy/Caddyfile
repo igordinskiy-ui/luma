@@ -36,5 +36,5 @@
     header_up X-Real-IP {remote_host}
     header_up X-Kurilka-Proxy {$PROXY_SHARED_SECRET}
   }
-  reverse_proxy web:8080
+  reverse_proxy web:80
 }
