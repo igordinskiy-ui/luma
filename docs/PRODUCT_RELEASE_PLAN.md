@@ -1,0 +1,169 @@
+# Product release workboard — «Последняя пачка»
+
+Этот документ — исполнимый журнал подготовки публичной B2C-беты. Статус
+`completed` означает, что функциональность реализована, покрыта тестами,
+прошла UI/UX-итерацию в стиле «Путь» и проверена в браузере. Внешние проверки
+нельзя закрывать без датированного доказательства владельца.
+
+## Правило выполнения
+
+Для каждого инкремента обязательна последовательность:
+
+1. backend и модель данных;
+2. клиентское поведение;
+3. unit/integration/E2E-тесты;
+4. UI/UX-шлифовка и accessibility;
+5. desktop/mobile browser QA;
+6. фиксация доказательств и известных ограничений ниже.
+
+Независимая работа продолжается при внешнем блокере. Платежи, paywall и
+нативные приложения не входят в текущую цель.
+
+## Текущий baseline
+
+Обновлено: 2026-07-15.
+
+| Область | Состояние | Доказательство / следующий шаг |
+| --- | --- | --- |
+| Web production build | completed | `npm run build`; 96.84 kB gzip JS по Vite (93.75 KiB проверяемого budget script), ниже обязательного лимита 150 KB |
+| Web unit/a11y baseline | completed | Vitest: 21 passed; Playwright + axe/PWA/web-vitals/privacy/coping/journey/journal/notifications/staff/error/reflow states: 125 passed на 390/430/768/1440 и отдельном 320 px zoom-equivalent production preview |
+| API unit baseline | completed | полный локальный regression на чистой мигрированной БД: 106 passed без skip; `compileall` app/tests/alembic/scripts, migration head `20260715_20`, ownership, notification, retention, journey и error-contract сценарии успешны |
+| Основной стиль | completed | «Путь» зафиксирован в ADR-002 и применён к пользовательским экранам |
+| Browser prototype QA | completed | dev-only каталог `/dev/designs`, production coping-flow и пять фаз dashboard доступны раздельно; каталог не попадает в production bundle |
+| Production credentials / domain | external-blocked | Требуются значения владельца и secret manager |
+| Legal / medical approval | external-blocked | Нужны реальные подписанные review; production gates остаются закрыты |
+| Device UAT / pilot | external-blocked | Выполняются только на deployed host и реальных устройствах/когорте |
+
+## Этапы
+
+| Этап | Статус | Exit gate |
+| --- | --- | --- |
+| 0. Baseline и инженерный фундамент | completed | `main.tsx` сокращён до 66 строк маршрутизации; app/journey/settings/feedback/staff/design вынесены в feature-модули, dev-каталог исключён из production bundle, стабильные маршруты и полный test harness без skip подтверждены |
+| 1. Вход, 18+, consent, onboarding | in_progress | три режима старта, 18+, безопасный локальный черновик, отдельный re-consent без мутации плана, неизменяемая история `version + legal digest` и production client E2E реализованы; остаётся deployed Telegram/OIDC E2E и подписанный legal UAT |
+| 2. Жизненный цикл пути | in_progress | `QuitAttempt`, `paused_from`, row-locked transitions, лучший период, ручной старт quit, pause/resume, recovery и полноценная 15-минутная отмена ошибочной отметки с откатом счётчика/периода реализованы; production client lifecycle/axe закрыт, полный API integration/concurrency gate выполняется в Python 3.12 CI |
+| 3. Production coping-flow | in_progress | модель/API, versioned content, 4 шага, pause/change/complete, mid-session network loss, строго последовательный user-bound replay и single-flight reconnect реализованы и закрыты production E2E/axe; остаётся полный API integration gate |
+| 4. Журнал | in_progress | cursor pagination без дублей, timeline, server filters, truthful summary, retry/empty, редактирование и подтверждаемое удаление ошибочной отметки в 15-минутном окне закрыты production E2E/axe; integration gate ожидает Python 3.12 CI |
+| 5. Уведомления и offline-first | in_progress | explicit opt-in, quiet hours/limit, browser subscribe/unsubscribe, test, expired/cross-account push cleanup, delivery fallback/retry coverage, idempotency и build-time precache реализованы; worker integration ожидает Python 3.12 CI, реальная доставка требует credentials |
+| 6. Settings, privacy, support, staff | in_progress | причины, дата подготовки, размер/цена пачки, полный export включая consent history, server-side revoke logout, device cleanup, double-confirm deletion, returning-user onboarding и staff triage реализованы; ownership/erasure integration-контракты добавлены, deployed auth lifecycle остаётся внешним |
+| 7. Аналитика и marketing readiness | in_progress | allowlisted source, период, funnel/first action и 3 SEO routes готовы; публикация/расходы external-blocked |
+| 8. Security, reliability, observability | in_progress | полный error contract, structured logs, internal metrics, retention, OIDC/egress policy, pinned dependencies/images/Actions, resource limits и web bundle/vitals budgets готовы; локально production images имеют 0 Critical/High, non-root/read-only web smoke возвращает HTTP 200; hosted repository scan, alert/restore evidence остаются гейтами |
+| 9. Content, legal, accessibility, UAT | external-blocked | локальные axe/focus/reduced-motion/320 px reflow гейты закрыты; holding legal pages блокируют preflight, нужны подписанные legal/medical review и реальные Android/iOS Telegram UAT |
+| 10. Production, pilot, public beta | external-blocked | smoke/load/pilot runbooks готовы; нужны credentials, deploy authority, 4 недели пилота, go/no-go и 7 дней стабилизации |
+
+## Последние доказательства
+
+- 2026-07-14 — onboarding `/dev/onboarding`: desktop/mobile browser QA, 390 px без overflow, ошибки консоли отсутствуют.
+- 2026-07-14 — journey `/dev/dashboard`: 390×844 и 1440×900, доступный progressbar, зоны управления ≥44 px, скриншоты `journey-dashboard-mobile.png` и `journey-dashboard-desktop.png` в browser evidence.
+- 2026-07-14 — coping `/dev/coping`: все четыре шага пройдены в реальном браузере; выбор техники, таймер, пауза/смена, состояние после; фокус переводится на заголовок шага, overflow 0, console errors 0.
+- 2026-07-14 — доступный API subset на локальном Python 3.14: 21/21; `compileall` для app/tests/alembic успешен. Полный integration runtime остаётся за Python 3.12 CI из-за отсутствия локального Python 3.12.
+- 2026-07-14 — journal `/dev/journal`: 390/1440 browser QA, server-shaped mixed timeline, недостаток данных объясняется текстом, overflow отсутствует, console errors 0.
+- 2026-07-14 — notification/settings `/dev/settings`: найден и исправлен 276 px overflow скрытого checkbox; повторно overflow отсутствует, opt-in выключен по умолчанию, destructive dialog начинает с фокуса в поле подтверждения.
+- 2026-07-14 — marketing `/guide/recovery`: unique title/description, четыре шага, CTA 48 px, overflow отсутствует, console errors 0.
+- 2026-07-14 — финальная web matrix: Vitest 9/9; Playwright + axe 12/12 на 390, 430, 768 и 1440 px; JS 91.71 KB gzip.
+- 2026-07-14 — Compose baseline и production overlay проходят `docker compose config --quiet`; Docker daemon для image smoke недоступен.
+- 2026-07-14 — production preflight ожидаемо отклонён: нет production secrets/domain/credentials, legal/content approvals и утверждённых страниц. Это зафиксированный release blocker, а не дефект обхода.
+- 2026-07-14 — после bootstrap/error-state и privacy-map итерации: API subset 21/21, Vitest 9/9, Playwright + axe 12/12, Compose baseline/production overlay valid, JS 92.11 KB gzip. Добавлены bootstrap integration contract и device UAT matrix.
+- 2026-07-14 — journal correction + auth hardening: 15-минутный edit flow проверен в браузере 390 px (focus, 44 px, overflow 0, console errors 0), screenshot `journal-edit-mobile.png`; server logout отзывает старые bearer-сессии, OIDC callback ограничен same-origin. После итерации Vitest 11/11, Playwright + axe 16/16, JS 92.87 KB gzip.
+- 2026-07-14 — lifecycle pause/resume: migration `20260714_17`, точное возвращение в исходную фазу, ручные preparation → last pack → quit переходы и мягкие Path-dialog/CTA. Browser QA 390 px: overflow 0, controls ≥44 px, console errors 0; screenshot `journey-resume-mobile.png`. Текущий build 93.90 KB gzip, E2E + axe 16/16.
+- 2026-07-14 — Stage 0 decomposition + phase UI contracts: `main.tsx` 560 → 66 строк; production app, journey, settings, feedback и staff разделены по feature-модулям, dev fixtures/showcase не обнаруживаются в production bundle. Vitest 17/17, Playwright + axe 16/16, build 94.23 KB gzip, skip-маркеров нет. Пять dashboard-композиций (`preparation`, `last_pack`, `quit`, `paused`, `recovery`) проверены во встроенном браузере на 390/430/768/1440 px: overflow 0, один `h1`, все видимые controls ≥44×44 px, ошибок текущего dev-запуска в консоли 0. Диалог паузы вернул фокус opener и показал сохранение истории.
+- 2026-07-14 — Stage 1 production client E2E + re-consent: добавлен `POST /v1/consent`, который меняет только возраст/версию согласия и не принимает данные плана; integration-тест фиксирует сохранение всех полей `QuitPlan`. Production Playwright проходит bearer bootstrap → 18+/consent → 4 шага onboarding → dashboard, отдельный re-consent и восстановление после оборванного bootstrap на 390/430/768/1440 px. Axe выявил и после UI/UX-итерации закрыл запрещённый `aria-label` progress-индикатора и контраст 4.24:1 подписи поддержки. Итог: E2E + axe 28/28, Vitest 17/17, schema contracts 14/14, compileall успешен, JS 94.25 KB gzip. Реальный Telegram/OIDC UAT не подменён и остаётся внешним гейтом.
+- 2026-07-14 — Stage 5 PWA offline shell: build теперь вычисляет версию service-worker cache и precache-ит фактические хешированные JS/CSS из `dist/index.html`; navigation fallback больше не подставляет HTML вместо отсутствующего asset. Production E2E устанавливает service worker, отключает сеть и успешно перезагружает приложение на 390/430/768/1440 px. Итоговая матрица: 32/32; внешний delivery test по-прежнему требует Telegram/VAPID credentials.
+- 2026-07-14 — ordered offline replay + performance gates: очередь event/coping останавливается на первой retryable-ошибке и сохраняет исходный порядок; идентичный повтор terminal coping PATCH после потерянного ответа возвращает сохранённую сессию вместо 409. Vitest 18/18, compileall успешен; integration-повтор добавлен для Python 3.12 CI. Build теперь падает при initial JS >150 KB gzip (текущее измерение 91.25 KiB), а Playwright проверяет LCP <2.5 s, CLS <0.1 и INP <200 ms на всех четырёх ширинах. Полная web-матрица 36/36.
+- 2026-07-14 — Stage 6 production privacy lifecycle: Playwright на 390/430/768/1440 проверяет JSON download, server-side logout, push cleanup, очистку bearer-сессии, typed destructive confirmation, account deletion и обязательный новый onboarding после повторного входа. Settings и destructive dialog проходят axe; полная web-матрица 44/44. Реальный deployed login/export/delete остаётся частью внешнего UAT, а не подменяется mock evidence.
+- 2026-07-14 — Stage 3 production coping E2E: сессия, начатая онлайн, переживает потерю сети между шагами, сохраняет create и все patch-команды локально, показывает честный sync-status и воспроизводится строго по порядку после reconnect. Два конкурентных события reconnect объединяются single-flight на пользователя; отдельный unit-тест исключает дубли. Flow, pause/change/complete, reduced-motion/axe проверены на 390/430/768/1440 px. Vitest 20/20, coping E2E 4/4.
+- 2026-07-14 — Stage 4 journal production E2E: cursor pagination удаляет дубли на границе страниц, period/type/trigger уходят серверными фильтрами, summary не строит вывод при малом объёме данных, retry/empty и race истёкшего 15-минутного окна сохраняют запись и дают понятное действие. Timeline переведён на нативную структуру `ol/li/article` после axe-аудита. Полная production preview матрица 60/60 на 390/430/768/1440 px; build 94.38 kB gzip JS, budget 91.34 KiB из 150 KB.
+- 2026-07-14 — Stage 5 notification settings E2E: явный opt-in, дневной лимит, тихие часы и сохранение расписания проверены через production API contract; недоступный тест даёт понятную 409-обратную связь без потери настроек. Custom switch проверяется через видимый связанный label, весь settings-screen проходит axe. Полная матрица 64/64; реальная Telegram/VAPID-доставка остаётся внешним credential-gate.
+- 2026-07-14 — Stage 6/7 staff analytics and triage E2E: период и allowlisted acquisition source передаются в `/admin/overview`, funnel/retention/delivery metrics отображаются без Telegram ID и пользовательских причин, feedback безопасно переводится из открытой очереди в закрытую. Staff-screen проходит axe на 390/430/768/1440 px; полная production preview матрица 68/68.
+- 2026-07-14 — Stage 8 resilient UI matrix: production preview проверяет доступные и восстанавливаемые состояния 401, staff 403, 409 edit/notification conflicts, 429, 500, 503, network loss и slow bootstrap; loading объявляется через live status, offline-текст подтверждает локальное сохранение, operational data не появляется при staff denial. Добавлен E2E полного feedback → staff triage пути. Итоговый срез: Vitest 20/20, Playwright + axe 100/100, production build 94.38 kB gzip JS (91.34 KiB budget из 150 KB).
+- 2026-07-14 — release placeholder audit: в документах, legal HTML и API нет `[[...]]`, TODO/FIXME, skip/importorskip маркеров. Повторный `release_preflight.py` корректно блокирует production из-за отсутствующих production secrets/domain/HTTPS URLs, неподписанных content/legal статусов и pending `privacy.html`/`terms.html`; ни один внешний approval не подменён.
+- 2026-07-14 — Stage 2 production journey lifecycle: сквозной клиентский E2E проходит `last_pack → quit → paused → quit → relapse/recovery`, проверяет точные API-переходы, номера попыток, сохранение лучшего периода и отсутствие события при отмене. Нативный `window.confirm` заменён на focus-managed Path recovery-dialog с мягким текстом и явным подтверждением; pause/relapse dialogs возвращают фокус opener. Axe выявил контраст 3.78:1 подписи recovery-таймера, цвет исправлен до AA. Итог: Vitest 21/21, Playwright + axe 104/104, build 94.58 kB gzip JS (91.55 KiB budget).
+- 2026-07-14 — Stage 2/5/6 follow-up: lifecycle E2E теперь дополнительно фиксирует уменьшение счётчика последней пачки `7 → 6` и доступного `aria-valuenow`; settings E2E проверяет preparation reason/date save и сохранение черновика после 500. Web push E2E проходит permission → subscribe payload → channel verification → browser unsubscribe → server DELETE. Для worker добавлены Python 3.12 integration-контракты Telegram→push fallback, удаления 410 subscription и остановки после max attempts; локально они compileall-валидны, выполнение не заявляется из-за отсутствующего `pywebpush` в Python 3.14.
+- 2026-07-14 — Stage 9 local accessibility follow-up: `prefers-reduced-motion` runtime-тест подтверждает отключение spinner animation и smooth scroll; отдельный Playwright-проект без skip проверяет public и authenticated app на 320 px — строгом reflow-эквиваленте 200% zoom — без horizontal overflow и axe-дефектов. Полный web-срез: Vitest 21/21, Playwright + axe 113/113, build 94.58 kB gzip JS (91.55 KiB budget).
+
+- 2026-07-14 — Stage 7 acquisition/privacy contract: добавлен сквозной Python 3.12 integration-тест `signed start_param → Telegram auth → onboarding → first action ≤24h → filtered staff overview`. Контракт фиксирует first-touch allowlist и доказывает, что Telegram ID, личная причина и заметка не попадают в отдельную analytics-таблицу. Первоначально bounded coping-события были добавлены в строгую allowlist; последующая minimization-итерация полностью убрала это дублирование — актуальное состояние зафиксировано ниже.
+
+- 2026-07-14 — Stage 3/9 content integrity: editorial approval теперь связан с SHA-256 всего пользовательского набора техник, подсказок подготовки и recovery. Любая правка текста меняет `CONTENT_DIGEST`; production API и `release_preflight.py` требуют точного `CONTENT_APPROVED_DIGEST`, поэтому старое одобрение нельзя незаметно применить к новому контенту. Staff UI показывает версию и короткий отпечаток; UI/UX-проверка на 390/430/768/1440 прошла 8/8 с axe и без horizontal overflow. Config/analytics unit-срез 17/17, Vitest 21/21, production build 94.63 kB gzip JS (91.59 KiB budget). Реальный медицинский sign-off по-прежнему не подменён.
+
+- 2026-07-14 — Stage 8 error contract hardening: handler переведён на базовый Starlette `HTTPException`, чтобы router-generated 404/405 не обходили единый `{error:{code,message,request_id,field_errors?}}`. Integration-контракты добавлены для validation, payload limit, 401, 404, 405, sanitized 500 и замены недоверенного `X-Request-ID`; они compileall-валидны и ожидают Python 3.12 CI. После UI/UX-итерации recoverable 401/429/503/500 показывают безопасный код обращения без личных данных; request ID ограничен безопасным алфавитом и длиной. Browser QA/axe/overflow error matrix 24/24 на 390/430/768/1440, Vitest 21/21, build 94.71 kB gzip JS (91.67 KiB budget).
+
+- 2026-07-14 — Stage 5 scheduler/opt-out hardening: scheduled check-ins больше не создают outbox и ложные delivery markers при opt-out, тихих часах или исчерпанном дневном лимите; повторное планирование идемпотентно. Worker держит preference row lock через provider attempt, а изменение настроек использует тот же lock, поэтому после успешного ответа opt-out новая отправка не может стартовать из устаревшего состояния. Детерминированный Python 3.12 integration-контракт добавлен и compileall-валиден; локальный rule-test после миграции dev-БД прошёл 1/1. UI явно сообщает, что после выключения новые сообщения не планируются, и блокирует тестовую отправку; settings browser QA/axe 20/20, Vitest 21/21, build 94.84 kB gzip JS (91.80 KiB budget).
+
+- 2026-07-14 — Stage 8 container readiness hardening: API healthcheck теперь использует `/ready` и не открывает edge при недоступных Postgres/Redis; production migrate и Caddy получили `init`, read-only root, tmpfs, dropped capabilities/no-new-privileges и resource limits. Baseline и production overlay проходят `docker compose config --quiet` с тестовыми обязательными переменными. Реальный image build/smoke не заявляется: Docker daemon в локальной среде недоступен; UI-деградация 503 ранее закрыта browser matrix.
+
+- 2026-07-14 — Stage 7 retention correctness: D1/D7/D14 больше не являются кумулятивным «любым поздним возвращением» и не обрезают старые когорты последними 15 днями. API считает только полные окна `[created+N, created+N+1)` по behavior/coping activity; молодой пользователь не попадает в знаменатель до закрытия окна. Детерминированный Python 3.12 integration-контракт фиксирует D1=1/3, D7=1/2, D14=1/2 и исключает событие на 16-й день; compileall успешен. Staff UI объясняет знаменатель и не допускает неверной интерпретации метрики; browser QA/axe/overflow 8/8, Vitest 21/21, build 94.97 kB gzip JS (91.92 KiB budget).
+
+- 2026-07-14 — Stage 5/7 delivery scorecard correctness: `delivery_failure_rate` теперь равен `failed / (sent + failed)` за 24 часа; `queued/scheduled` не могут искусственно улучшить go/no-go-показатель. Integration-контракт с 1 sent, 1 failed и 8 queued фиксирует rate 50%, compileall успешен. Staff UI явно объясняет знаменатель рядом с retention; browser QA/axe/overflow 8/8, build 95.01 kB gzip JS (91.96 KiB budget).
+
+- 2026-07-14 — Stage 7/8 crash-free measurement: authenticated browser tabs отправляют idempotent `session_started` и не более одного `crash`; API принимает только event + UUID, сохраняет SHA-256 prefix и не принимает URL, stack trace или текст исключения. Staff overview считает уникальные started/crashed hashes и показывает crash-free rate рядом с определением. Analytics/config unit-срез 18/18, integration-контракт для 2 сессий/1 crash добавлен и compileall-валиден для Python 3.12 CI; staff browser QA/axe/overflow 8/8, Vitest 21/21, build 95.29 kB gzip JS (92.23 KiB budget).
+
+- 2026-07-14 — полная regression после metrics/telemetry/notification hardening: Vitest 21/21, Playwright + axe/PWA/web-vitals/privacy/coping/journey/journal/settings/staff/error/reflow 113/113, production build 95.29 kB gzip JS (92.23 KiB из 150 KB). Новых horizontal overflow, accessibility или route-регрессий не обнаружено.
+
+- 2026-07-14 — Stage 8 measurable observability: API latency теперь экспортируется как Prometheus histogram с buckets для вычисления p95, дополнительно доступны DB up, pending/failed outbox, queued/failed delivery и Redis worker heartbeat age. Worker обновляет TTL heartbeat после успешного цикла. Добавлены no-skip unit/integration contracts и точные PromQL/threshold/alert-test правила в `OBSERVABILITY_RUNBOOK.md`; compileall успешен. Локальное исполнение FastAPI-зависимого теста не заявляется из-за неполного Python 3.14 runtime, alert delivery остаётся честным внешним гейтом.
+
+- 2026-07-14 — Stage 3/5/9 editorial coverage: Telegram `/start` и fallback «Меня тянет» удалены из независимых hardcoded строк, перенесены в `BOT_MESSAGES` и включены в тот же immutable `CONTENT_DIGEST`, что coping/pre-quit/recovery. Pure catalogue contract пересчитывает canonical SHA-256 и не позволяет незаметно исключить Telegram copy из review scope; доступный API unit-срез 19/19, compileall успешен. Реальный Telegram rendering остаётся частью внешнего device/UAT gate.
+
+- 2026-07-14 — Stage 9 full editorial manifest: approval разделён на runtime `CONTENT_CATALOGUE_DIGEST` и полный `CONTENT_APPROVED_DIGEST`, вычисляемый `scripts/content_manifest.py` по production API catalogue, Telegram messages/buttons, всем production feature TSX (без dev design), public legal HTML/manifest JSON и index metadata. `release_preflight.py` требует оба точных отпечатка; изменение любого reviewed файла инвалидирует старый sign-off. Текущий unsigned manifest digest печатается инструментом, но не объявляется approved. Catalogue/config/analytics unit-срез 19/19; production approval по-прежнему внешний.
+
+- 2026-07-14 — Stage 7/8 telemetry concurrency: migration `20260714_18` добавляет partial unique index `(user_id,event_name,properties)` только для `client_session_started/client_crash`; остальные product analytics не ограничиваются. Endpoint обрабатывает проигранную INSERT-гонку как idempotent 204, добавлен 8-way concurrency integration-контракт для Python 3.12 CI. Migration применена локально, compileall успешен, доступный unit-срез 19/19; staff crash-free UI повторно прошёл axe/overflow 8/8 на 390/430/768/1440.
+
+- 2026-07-14 — Stage 6 device telemetry cleanup: logout/delete теперь очищают не только bearer/user/OIDC/offline state, но и случайный `kurilka-client-session-id` с crash marker, поэтому следующий пользователь общего устройства получает независимую техническую сессию. Production settings E2E проверяет cleanup после обоих destructive flows на 390/430/768/1440; browser QA/axe 20/20, Vitest 21/21, build 95.31 kB gzip JS (92.25 KiB budget).
+
+- 2026-07-14 — Stage 5/9 PWA legal-cache isolation: navigation responses больше не перезаписывают `/`; shell, privacy и terms используют собственные cache keys, а cache version строится по SHA-256 фактического содержимого index/assets/manifest/icon/legal HTML. После смены подписанных документов устанавливается новый cache вместо сохранения старой legal-копии. E2E воспроизводит `app → privacy → offline /app → offline privacy` на четырёх ширинах; public/PWA 28/28, полная Playwright/axe матрица 117/117, Vitest 21/21, build 95.31 kB gzip JS.
+
+- 2026-07-14 — Scope/privacy consistency: устаревший `GO_TO_MARKET_PLAN.md` больше не требует paywall/checkout/payment events, revenue KPI или произвольные campaign/creative fields в текущей бете. Текущий контракт согласован с целью: бесплатная B2C-бета, allowlisted source и безопасная воронка до D14; монетизация явно вынесена в отдельную будущую цель владельца.
+
+- 2026-07-14 — Stage 1/6 preparation-plan integrity: `PUT /v1/quit-plan` больше не принимает timezone-naive, прошедшую или пустую дату для активной preparation-фазы. Settings показывает локальное время устройства, future-minimum, связанную с полем доступную ошибку и сохраняет весь черновик при client/server failure. Schema-contract 16/16, settings browser QA/axe 20/20 на 390/430/768/1440, Vitest 21/21; integration-инварианта добавлена в обязательный Python 3.12 CI.
+
+- 2026-07-14 — Stage 2/4 actual correction flow: недавнее событие теперь можно не только отредактировать, но и удалить после отдельного focus-managed подтверждения. Сервер под row lock восстанавливает счётчик последней пачки, откатывает автоматический `last_pack → quit`, либо повторно открывает предыдущий quit-период после ошибочного relapse; при более новом несовместимом переходе возвращает безопасный 409. Pending support отменяется только по точному `event_id`, а ранний flush сохраняет concurrent offline idempotency. Добавлены Python 3.12 integration-контракты для expiry, auto-transition rollback, attempt restore и outbox cleanup; локально compileall успешен. Journal E2E/axe 16/16, полная production-preview матрица 121/121, Vitest 21/21, build 96.15 kB gzip JS (93.08 KiB budget). Новый полный editorial manifest `bfd9fbf47b193754ec626187116b5a82fee8f89651c6eb40d07a47fc1debdea2` является только unsigned review candidate, не approval.
+
+- 2026-07-14 — Stage 7 analytics data minimization: отдельные события onboarding/plan/behavior/coping/feedback удалены из `analytics_events`, поскольку funnel/retention/delivery уже считаются напрямую по основным моделям. В analytics allowlist остались только `client_session_started`/`client_crash` с server-side SHA-256 случайного UUID и без payload ошибки. Миграция `20260714_19` необратимо удаляет старые дубли продуктовых деталей; локальный `alembic upgrade head`, compileall и focused analytics/schema-contract 18/18 успешны. Acquisition/coping integration-контракты для Python 3.12 теперь требуют отсутствия таких дублей; `ANALYTICS_EVENTS.md` и privacy map синхронизированы.
+
+- 2026-07-14 — Stage 6 complete plan inputs: settings теперь редактируют не только причину/дату подготовки, но и `cigarettes_per_pack`/`pack_price`, от которых зависят будущие объясняемые оценки. Клиент и API ограничивают 1–100 сигарет и 0–1 000 000 ₽, не принимают NaN/Infinity; UI прямо сообщает, что история и лучший период не меняются, и сохраняет черновик при ошибке. Focused analytics/schema-contract 19/19, compileall успешен, Vitest 21/21, settings E2E/axe 20/20 на 390/430/768/1440, build 96.40 kB gzip JS (93.32 KiB budget). Текущий полный editorial manifest `93cce12ebc5ff7b728dd9da2ffbd9bf57f9296209e968ab76369e314a3bd9f90` — unsigned review candidate.
+
+- 2026-07-14 — Stage 5 shared-device push ownership: API уже fail-closed отклонял endpoint другого пользователя; UI теперь снимает созданную браузерную подписку после 409, объясняет связь с предыдущим профилем и предлагает безопасный повтор, вместо тупикового generic error. Python 3.12 integration-контракт доказывает, что owner/key не перезаписываются. Settings E2E/axe 24/24 на четырёх ширинах, Vitest 21/21, focused API 19/19, build 96.50 kB gzip JS (93.41 KiB budget). Текущий unsigned editorial manifest: `c48fcafa7f29687b920437676965719f2dd5622b9ece9528471a383fbbfb2c85`.
+
+- 2026-07-14 — Stage 8 CI supply-chain audit: полный pytest без skip, Playwright и container/security scans обязательны и не помечены `continue-on-error`; mutable Action refs были зафиксированы как открытый риск. Риск закрыт инкрементом 2026-07-15 ниже.
+
+- 2026-07-14 — Final local regression for current increment: первый полный run обнаружил test-only race в staff E2E (`patchPayload` читался сразу после клика). Assertion переведён на ожидание фактического async PATCH без retry/ослабления; targeted staff 8/8 и повторная полная production-preview матрица 125/125 успешны. Vitest 21/21, build 96.50 kB gzip JS (93.41 KiB budget), Compose config valid, migration head `20260714_19`, skip/placeholder audit чистый. Release preflight ожидаемо закрыт только на production secrets/domain/HTTPS, signed content/legal approvals и pending legal pages.
+
+- 2026-07-15 — Stage 1/6 immutable consent evidence: migration `20260715_20` добавляет пользовательскую историю согласий с уникальными `document_version + document_digest`, источником, 18+ и временем; текущая версия больше не считается достаточной при изменении байтов legal-страниц. `scripts/legal_manifest.py` детерминированно связывает privacy/terms с SHA-256, production preflight требует точного `LEGAL_DOCUMENTS_DIGEST`; bootstrap, onboarding и re-consent показывают редакцию и короткий отпечаток в UI «Путь». Export/erasure/ownership и идемпотентный re-consent покрыты Python 3.12 integration-контрактами, локально они compileall-валидны; доступный Python 3.14 unit-срез 34/34 и migration head успешны. Axe нашёл и после UI/UX-итерации закрыл запрещённый `aria-label` декоративного stepper; timezone-хрупкая E2E-проверка заменена на сравнение точного UTC-момента. Итог: Vitest 21/21, Playwright + axe/overflow 125/125 на 390/430/768/1440/320 px, build 96.84 kB gzip JS (93.75 KiB budget), Compose config valid. Unsigned review candidates: content `7dccb189db2d97fff118bbffba171c4dfba1e35d1caf1d5327c30ceda9d858a3`, legal `9f9298a64c2d8fd6b8552e055ba4834b1d32a037f0e60abd54decb6b78c6c30b`; approvals не заявлены.
+
+- 2026-07-15 — Stage 8 Action supply-chain pinning: официальные Git refs подтверждены напрямую и все remote `uses:` закреплены full SHA (`checkout` v4.3.1, `setup-python` v5.6.0, `setup-node` v4.4.0, `trivy-action` v0.36.0). Удалённая после Trivy supply-chain remediation ссылка `0.28.0` заменена безопасной актуальной версией. `scripts/check_ci_pins.py` и два unit-контракта запрещают возврат mutable tags; доступный API/security срез 36/36. Реальный hosted CI и image scan не заявляются до запуска в GitHub с Docker/network.
+
+- 2026-07-15 — Stage 8 standard security scan: риск-ранжирование охватило 132 файла/конфигурации, 17/17 выбранных файлов получили full-file receipts. На исходном snapshot подтверждены три корневых дефекта: пустой session HMAC key вне production, обход лимита тела streamed-запросом и worker poison через некорректные push-ключи. Все три закрыты в текущем worktree fail-closed проверками, byte-counting ASGI stream, строгой валидацией push key, bounded retry и per-event isolation; дополнительно исправлен `NotificationDelivery.attempts=None` до первого flush. Локальный pure security-срез 42/42, compileall, Vitest 21/21, production build 96.84 kB gzip и полный Playwright/axe/offline/error/reflow прогон 125/125 успешны. Первый seal ожидаемо отклонён после изменения snapshot исправлениями; свежий remediated scan открыт и ожидает `Start scan`. Полный FastAPI/worker regression остаётся обязательным hosted Python 3.12 CI gate. Подробности: `docs/SECURITY_SCAN_2026-07-15.md`.
+
+- 2026-07-15 — синхронизация с VPS и восстановление CI/container baseline: локальный `main` fast-forward до VPS-коммитов `80d3090`/`38515f6`. Разобраны все четыре job GitHub Actions run `29377324421`: web 21/21 + Playwright 125/125 был зелёным, API/container/repository jobs падали на известных уязвимых версиях. Обновлены FastAPI, python-multipart, aiogram, PyJWT и официальные Python/Node/nginx base images; web переведён на непривилегированный nginx:101/8080 без capabilities. На чистой мигрированной БД полный API regression 106/106 без skip; Compose base/prod validation и сборка api/worker/web успешны; Trivy 0 Critical/High для API и web images; production-like web smoke с `read_only`, `cap_drop: ALL`, `no-new-privileges` и tmpfs — HTTP 200. Hosted CI и repository filesystem scan фиксируются только после push текущего verified snapshot.
+
+## Quality gates
+
+- Backend: unit, integration, ownership, idempotency, concurrency, rate limits,
+  migrations, retention и privacy coverage.
+- Frontend: component tests, критические E2E, offline/error states, axe и visual
+  regression на 390, 430, 768 и 1440 px.
+- Accessibility: WCAG 2.2 AA, 44×44 px, keyboard/focus, screen reader, 200%
+  zoom, reduced motion.
+- Performance: initial JS ≤150 KB gzip; LCP <2.5 s, CLS <0.1, INP <200 ms;
+  API read p95 <500 ms и write p95 <700 ms при 50 параллельных пользователях.
+- Release: dependency/secret/container scans без открытых Critical/High,
+  проверенный rollback, backup/restore и synthetic export/delete.
+
+## Go/no-go публичной беты
+
+- onboarding activation ≥60%;
+- первое действие за 24 часа ≥40%;
+- D7 ≥20%, D14 ≥12%;
+- delivery failure <2%, API error rate <1%, crash-free sessions ≥99.5%;
+- 0 критических privacy/security/medical-инцидентов;
+- нет просроченных privacy requests и Critical/High-дефектов.
+
+Если продуктовые пороги не достигнуты, обязателен ещё один полный цикл:
+функциональное исправление → UI/UX-итерация → regression/UAT.
+
+## Внешние блокеры, которые нельзя подменять
+
+- утверждение legal/medical-контента, 18+ сценария, retention и документов;
+- production domain, TLS, Telegram/OIDC/VAPID credentials и договоры;
+- реальный alert delivery test и изолированный restore drill;
+- успешный hosted CI после pinning, включая dependency/secret/container scans;
+- Android/iOS Telegram WebView и desktop UAT;
+- публикация рекламы, рекламные расходы и результаты четырёхнедельного пилота.

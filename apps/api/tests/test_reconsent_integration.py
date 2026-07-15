@@ -42,7 +42,13 @@ def test_reconsent_preserves_every_quit_plan_field(monkeypatch):
                 ("outdated", "b" * 64, "legacy"),
                 ("2026-07-14-test", "a" * 64, "reconsent"),
             ]
-            assert client.get("/v1/bootstrap").json() == {"age_confirmed": True, "consent_current": True, "onboarded": True}
+            assert client.get("/v1/bootstrap").json() == {
+                "age_confirmed": True,
+                "consent_current": True,
+                "onboarded": True,
+                "legal_documents_version": "2026-07-14-test",
+                "legal_documents_digest": "a" * 64,
+            }
     finally:
         app.dependency_overrides.clear()
         db.close()

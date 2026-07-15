@@ -9,7 +9,7 @@ from app.session import issue_session
 
 
 def test_logout_rotates_auth_version_and_rejects_old_token(monkeypatch):
-    monkeypatch.setattr(settings, "session_secret", "logout-integration-secret")
+    monkeypatch.setattr(settings, "session_secret", "logout-integration-secret-at-least-32")
     db = SessionLocal()
     user = User(telegram_id="logout-integration-user")
     db.add(user); db.commit(); db.refresh(user)

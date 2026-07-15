@@ -73,7 +73,7 @@ jobs:
           PROXY_SHARED_SECRET: ci-test-proxy-secret-at-least-32-characters
         run: |
           docker run --rm -e DOMAIN -e PROXY_SHARED_SECRET -v "$PWD/deploy/Caddyfile:/etc/caddy/Caddyfile:ro" caddy:2.8.4-alpine caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
-          docker run --rm -v "$PWD/apps/web/nginx.conf:/etc/nginx/conf.d/default.conf:ro" nginx:1.27.3-alpine nginx -t
+          docker run --rm -v "$PWD/apps/web/nginx.conf:/etc/nginx/conf.d/default.conf:ro" nginx:1.31.2-alpine3.23@sha256:54f2a904c251d5a34adf545a72d32515a15e08418dae0266e23be2e18c66fefa nginx -t
       - run: docker compose build api worker web
       - name: Scan API image
         uses: aquasecurity/trivy-action@a9c7b0f06e461e9d4b4d1711f154ee024b8d7ab8 # v0.36.0

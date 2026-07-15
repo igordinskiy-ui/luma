@@ -20,7 +20,9 @@ def test_retention_removes_only_expired_terminal_records(monkeypatch):
         AnalyticsEvent(user_id=user.id, event_name="account_deleted", properties="{}", created_at=now - timedelta(days=181)),
         Feedback(user_id=user.id, category="idea", body="old resolved", status="resolved", resolved_at=now - timedelta(days=366), created_at=now - timedelta(days=400)),
     ])
-    db.commit(); db.close()
+    db.commit()
+    user_id = user.id
+    db.close()
     for name, value in (("outbox_retention_days", 30), ("delivery_retention_days", 90), ("analytics_retention_days", 180), ("feedback_retention_days", 365)):
         monkeypatch.setattr(settings, name, value)
 
@@ -29,5 +31,5 @@ def test_retention_removes_only_expired_terminal_records(monkeypatch):
     check = SessionLocal()
     try:
         assert result == {"outbox": 1, "deliveries": 1, "analytics": 1, "feedback": 1}
-        assert check.scalar(select(func.count(OutboxEvent.id)).where(OutboxEvent.user_id == user.id)) == 1
+        assert check.scalar(select(func.count(OutboxEvent.id)).where(OutboxEvent.user_id == user_id)) == 1
     finally: check.close()

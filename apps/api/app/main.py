@@ -42,21 +42,25 @@ def request_id(request: Request) -> str:
 
 @app.exception_handler(StarletteHTTPException)
 async def http_error(request: Request, exc: StarletteHTTPException):
+    identifier = request_id(request)
     message = exc.detail if isinstance(exc.detail, str) else "Request failed"
-    return JSONResponse(status_code=exc.status_code, headers=exc.headers, content={"error": {"code": f"http_{exc.status_code}", "message": message, "request_id": request_id(request)}})
+    headers = dict(exc.headers or {})
+    headers["X-Request-ID"] = identifier
+    return JSONResponse(status_code=exc.status_code, headers=headers, content={"error": {"code": f"http_{exc.status_code}", "message": message, "request_id": identifier}})
 
 
 @app.exception_handler(RequestValidationError)
 async def validation_error(request: Request, exc: RequestValidationError):
+    identifier = request_id(request)
     fields = [{"field": ".".join(str(part) for part in error["loc"] if part != "body"), "message": error["msg"]} for error in exc.errors()]
-    return JSONResponse(status_code=422, content={"error": {"code": "validation_error", "message": "Request validation failed", "request_id": request_id(request), "field_errors": fields}})
+    return JSONResponse(status_code=422, headers={"X-Request-ID": identifier}, content={"error": {"code": "validation_error", "message": "Request validation failed", "request_id": identifier, "field_errors": fields}})
 
 
 @app.exception_handler(Exception)
 async def unexpected_error(request: Request, exc: Exception):
     identifier = request_id(request)
     logger.error(json.dumps({"event": "unhandled_request_error", "request_id": identifier, "path": request.url.path, "error_type": type(exc).__name__}, ensure_ascii=False))
-    return JSONResponse(status_code=500, content={"error": {"code": "internal_error", "message": "Internal server error", "request_id": identifier}})
+    return JSONResponse(status_code=500, headers={"X-Request-ID": identifier}, content={"error": {"code": "internal_error", "message": "Internal server error", "request_id": identifier}})
 
 @app.middleware("http")
 async def limit_request_body(request: Request, call_next):
@@ -891,4 +895,10 @@ def delete_account(request: Request, user: User = Depends(current_user), db: Ses
     enforce(request, "account-delete", 3, subject=user.id)
     for model in (BehaviorEvent, ConsentRecord, CopingSession, NotificationDelivery, PushSubscription, OutboxEvent, QuitAttempt, QuitPlan, NotificationPreference, AnalyticsEvent, Entitlement, Feedback):
         for row in db.scalars(select(model).where(model.user_id == user.id)): db.delete(row)
-    db.delete(user); db.commit(); return Response(status_code=204)
+    # Authentication may supply an ORM instance loaded by another session
+    # (notably in test overrides and future external identity adapters). Delete
+    # the row owned by this transaction instead of attaching that instance.
+    account = db.get(User, user.id)
+    if account:
+        db.delete(account)
+    db.commit(); return Response(status_code=204)

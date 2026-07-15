@@ -1,4 +1,5 @@
 """Runs in CI's Python 3.12 environment with the full API dependency set."""
+import base64
 from fastapi.testclient import TestClient
 from sqlalchemy import func, select
 
@@ -49,7 +50,9 @@ def test_push_endpoint_cannot_be_silently_moved_between_users():
     app.dependency_overrides[current_user] = lambda: newcomer
     try:
         with TestClient(app) as client:
-            response = client.put("/v1/push-subscription", json={"endpoint": endpoint, "p256dh": "new-key-1", "auth": "new-auth-1"})
+            valid_public_key = base64.urlsafe_b64encode(b"\x04" + b"x" * 64).decode().rstrip("=")
+            valid_auth_secret = base64.urlsafe_b64encode(b"y" * 16).decode().rstrip("=")
+            response = client.put("/v1/push-subscription", json={"endpoint": endpoint, "p256dh": valid_public_key, "auth": valid_auth_secret})
             assert response.status_code == 409
             db.expire_all()
             stored = db.scalar(select(PushSubscription).where(PushSubscription.endpoint == endpoint))

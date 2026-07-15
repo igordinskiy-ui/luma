@@ -44,6 +44,10 @@ def active_attempt(db: Session, user_id: int, *, locked: bool = False) -> QuitAt
 
 
 def start_attempt(db: Session, user_id: int, at: datetime) -> QuitAttempt:
+    # SessionLocal deliberately disables autoflush. Persist a just-closed
+    # attempt before looking for an active one, otherwise the SELECT still
+    # sees its old NULL ended_at value and silently reuses it.
+    db.flush()
     current = active_attempt(db, user_id, locked=True)
     if current:
         return current
