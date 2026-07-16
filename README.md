@@ -112,6 +112,7 @@ docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
 
 - [Production environment](docs/PRODUCTION_ENVIRONMENT.md)
 - [Operations runbook](docs/OPERATIONS_RUNBOOK.md)
+- [Production deploy runner](docs/DEPLOY_RUNNER.md)
 - [Release checklist](docs/RELEASE_CHECKLIST.md)
 - [Authentication ADR](docs/ADR-001-authentication.md)
 - [Design system ADR](docs/ADR-002-path-design-system.md)

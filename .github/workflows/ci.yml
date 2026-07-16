@@ -87,7 +87,7 @@ jobs:
           docker volume create "$caddy_config"
           trap 'docker volume rm "$caddy_data" "$caddy_config" >/dev/null' EXIT
           docker run --rm --user 0:0 --entrypoint sh -v "$caddy_data:/data" -v "$caddy_config:/config" luma-caddy:local -c 'touch /data/root-owned /config/root-owned; chmod 600 /data/root-owned /config/root-owned'
-          docker run --rm --user 0:0 --read-only --tmpfs /tmp:size=32m --cap-drop ALL --cap-add CHOWN --cap-add SETUID --cap-add SETGID --sysctl net.ipv4.ip_unprivileged_port_start=0 -v "$caddy_data:/data" -v "$caddy_config:/config" luma-caddy:local sh -c 'test "$(id -u)" = 1000; grep -Eq "^NoNewPrivs:[[:space:]]+1" /proc/1/status; echo ok >> /data/root-owned; echo ok >> /config/root-owned'
+          docker run --rm --init --user 0:0 --read-only --tmpfs /tmp:size=32m --cap-drop ALL --cap-add CHOWN --cap-add SETUID --cap-add SETGID --sysctl net.ipv4.ip_unprivileged_port_start=0 -v "$caddy_data:/data" -v "$caddy_config:/config" luma-caddy:local sh -c 'test "$(id -u)" = 1000; grep -Eq "^NoNewPrivs:[[:space:]]+1" /proc/$$/status; echo ok >> /data/root-owned; echo ok >> /config/root-owned'
       - name: Validate reverse-proxy configuration
         env:
           DOMAIN: ci.example.test
@@ -159,9 +159,18 @@ jobs:
           DEPLOY_HOST: ${{ secrets.LUMA_DEPLOY_HOST }}
           DEPLOY_KEY: ${{ secrets.LUMA_DEPLOY_KEY }}
           KNOWN_HOSTS: ${{ secrets.LUMA_DEPLOY_KNOWN_HOSTS }}
+          EVIDENCE_REQUIRED: ${{ vars.LUMA_DEPLOY_EVIDENCE_REQUIRED }}
         run: |
           install -d -m 700 ~/.ssh
           printf '%s\n' "$DEPLOY_KEY" > ~/.ssh/id_ed25519
           printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
           chmod 600 ~/.ssh/id_ed25519 ~/.ssh/known_hosts
-          ssh -i ~/.ssh/id_ed25519 -o BatchMode=yes -o StrictHostKeyChecking=yes "luma-deploy@$DEPLOY_HOST" "$GITHUB_SHA"
+          deploy_output="$(ssh -i ~/.ssh/id_ed25519 -o BatchMode=yes -o StrictHostKeyChecking=yes "luma-deploy@$DEPLOY_HOST" "$GITHUB_SHA")"
+          printf '%s\n' "$deploy_output"
+          evidence_pattern="^LUMA_DEPLOY_EVIDENCE revision=${GITHUB_SHA} previous=(unknown|[0-9a-f]{40}) caddy_uid=1000 no_new_privs=1 health=200 ready=200 synthetic=(passed|not_configured)$"
+          if ! printf '%s\n' "$deploy_output" | grep -Eq "$evidence_pattern"; then
+            echo "::warning::VPS deploy runner did not return the machine-readable edge/smoke evidence contract"
+            if [ "$EVIDENCE_REQUIRED" = "true" ]; then
+              exit 1
+            fi
+          fi

@@ -5,6 +5,11 @@ the incident/deploy ID, owner, timestamps and evidence for every execution.
 
 ## Deploy and rollback
 
+The restricted VPS setup and machine-readable edge evidence are defined in
+`DEPLOY_RUNNER.md`. A green GitHub deployment without its evidence line proves
+only that the legacy remote command exited successfully; it does not prove that
+Caddy was recreated or that the public origin answered health checks.
+
 1. Build and test the tagged image in CI; record the immutable image reference and approved change. For the first infrastructure deployment keep `PUBLIC_LAUNCH_ENABLED=false`.
 2. Verify a successful backup within the owner-approved freshness SLO, its checksum, storage encryption and the last successful restore drill.
 3. Apply `alembic upgrade head`, deploy API and worker, then check `/health` and `/ready`.
