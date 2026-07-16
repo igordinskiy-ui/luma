@@ -152,6 +152,8 @@
 
 - 2026-07-17 — Stage 8 backup/restore hardening: plaintext dump теперь создаётся с `0600` и удаляется trap на success/error/signal; encrypted object и basename-only checksum публикуются атомарно без привязки к исходному пути. Restore больше не доверяет слову `drill` в URL: до decrypt/clean он требует точное destructive confirmation, фактическое имя БД, уникальный database-comment marker, отдельный `DATABASE_URL` и отсутствие других сессий; checksum/catalogue проверяются до transactional `pg_restore --exit-on-error`. Добавлен pinned non-root backup-tool image (`postgres 16.14 + openssl 3.5.7`, без `gosu`) с локальным Trivy 0 High/Critical. Реальный ephemeral Docker drill подтвердил backup → marker rejection → restore → Alembic/rows parity → ciphertext tamper rejection и полную cleanup; unit/pin срез 9/9. Production storage, dated restore, RPO/RTO и owner approval не заявляются.
 
+- 2026-07-17 — hosted backup/restore regression: GitHub Actions run `29541911670` успешно завершил API, web, repository-security и containers; новый pinned backup-tool image собран и просканирован без Critical/High, а ephemeral backup/restore smoke прошёл marker/tamper rejection и data parity. `deploy-production` также завершён успешно для revision `770fd46`; это подтверждает доставку кода на VPS, но не заменяет отдельный restore из production storage с зафиксированными RPO/RTO и owner approval.
+
 ## Quality gates
 
 - Backend: unit, integration, ownership, idempotency, concurrency, rate limits,
