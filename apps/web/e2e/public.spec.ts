@@ -35,12 +35,14 @@ test('feedback and pending legal states are explicit and accessible', async ({ p
   await expect(page.getByRole('textbox', { name: 'Сообщение' })).toBeVisible();
   expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
 
-  for (const path of ['/privacy.html', '/terms.html']) {
+  for (const path of ['/consent.html', '/privacy.html', '/terms.html']) {
     await page.goto(path);
     await expect(page.locator('main[data-approval="pending"]')).toBeVisible();
     await expect(page.locator('meta[name="robots"]')).toHaveAttribute('content', 'noindex');
     expect(await page.locator('body').innerText()).not.toContain('['.repeat(2));
     expect((await new AxeBuilder({ page }).analyze()).violations, path).toEqual([]);
+    await page.setViewportSize({ width: 320, height: 800 });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(320);
   }
 });
 
@@ -83,13 +85,13 @@ test('legal navigation cannot replace the offline app shell cache', async ({ pag
   await page.reload();
   await expect.poll(() => page.evaluate(() => Boolean(navigator.serviceWorker.controller))).toBe(true);
   await page.goto('/privacy.html');
-  await expect(page.getByRole('heading', { level: 1 })).toContainText('Политика обработки данных');
+  await expect(page.getByRole('heading', { level: 1 })).toContainText('Политика обработки');
   await context.setOffline(true);
   try {
     await page.goto('/app');
     await expect(page.getByRole('heading', { level: 1 })).toContainText('Следующий честный шаг');
     await page.goto('/privacy.html');
-    await expect(page.getByRole('heading', { level: 1 })).toContainText('Политика обработки данных');
+    await expect(page.getByRole('heading', { level: 1 })).toContainText('Политика обработки');
   } finally {
     await context.setOffline(false);
   }

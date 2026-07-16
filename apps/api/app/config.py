@@ -31,7 +31,9 @@ class Settings(BaseSettings):
     legal_documents_status: str = "template"
     legal_documents_version: str = ""
     legal_documents_digest: str = ""
-    risk_engine_version: str = "rules_v1"
+    # Compatibility flag. Only the non-scoring baseline is permitted: the
+    # product must not infer clinical or health risk from behaviour records.
+    risk_engine_version: str = "baseline"
     admin_telegram_ids: str = ""
     acquisition_sources: str = ""
     proxy_shared_secret: str = ""
@@ -103,7 +105,7 @@ def validate_security_settings() -> None:
             raise RuntimeError("TELEGRAM_OIDC_REDIRECT_URI must be the same-origin HTTPS /api/v1/auth/oidc/callback URL")
     if any(not re.fullmatch(r"[A-Za-z0-9_-]{1,64}", value) for value in approved_acquisition_sources()):
         raise RuntimeError("ACQUISITION_SOURCES must contain only short approved campaign codes")
-    if settings.risk_engine_version not in {"rules_v1", "baseline"}: raise RuntimeError("RISK_ENGINE_VERSION must be rules_v1 or baseline")
+    if settings.risk_engine_version != "baseline": raise RuntimeError("RISK_ENGINE_VERSION must be baseline; user health/risk scoring is prohibited")
     if not settings.public_launch_enabled:
         return
     if len(settings.telegram_webhook_secret) < 24: raise RuntimeError("TELEGRAM_WEBHOOK_SECRET must contain at least 24 characters")

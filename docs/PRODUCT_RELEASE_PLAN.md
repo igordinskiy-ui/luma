@@ -154,6 +154,10 @@
 
 - 2026-07-17 — hosted backup/restore regression: GitHub Actions run `29541911670` успешно завершил API, web, repository-security и containers; новый pinned backup-tool image собран и просканирован без Critical/High, а ephemeral backup/restore smoke прошёл marker/tamper rejection и data parity. `deploy-production` также завершён успешно для revision `770fd46`; это подтверждает доставку кода на VPS, но не заменяет отдельный restore из production storage с зафиксированными RPO/RTO и owner approval.
 
+- 2026-07-17 — Stage 0 repeatable integration harness: pytest больше не использует накопленный developer `kurilka.db`. Каждый invocation получает отдельную временную SQLite-базу, прогоняет реальные Alembic migrations до `head`, закрывает sessions/engine и удаляет артефакт. Это исправило воспроизводимый повторный локальный прогон: на заранее загрязнённой базе старый harness дал 31 duplicate-state failure, новый завершил полный API-срез 137/137 и не изменил локальные данные разработчика.
+
+- 2026-07-17 — Stage 9 non-medical/legal boundary + UI/UX: вычисление персонального low/medium/high score удалено; backward-compatible `/v1` поле ограничено константой `low`, web больше не кодирует «уровень риска» цветом, а production/preflight разрешает только `RISK_ENGINE_VERSION=baseline`. Consent включён в legal digest и onboarding/re-consent; три pending legal-страницы остаются fail-closed через `data-approval` и обязательные поля, но больше не показывают посетителю технические `[[PLACEHOLDER]]`. UI получил responsive type, focus-visible, 44px targets и keyboard-scroll region для таблицы. Focused backend 22/22, Vitest 21/21, production build 97.23 kB gzip JS, production-preview Playwright/axe/offline/onboarding/legal matrix 40/40 на 390/430/768/1440; ручной in-app browser QA на 390 px подтвердил отсутствие page overflow. Это не является legal или medical approval: реквизиты, основания, reviewers и подписанные digest остаются внешними Stage 9 гейтами.
+
 ## Quality gates
 
 - Backend: unit, integration, ownership, idempotency, concurrency, rate limits,

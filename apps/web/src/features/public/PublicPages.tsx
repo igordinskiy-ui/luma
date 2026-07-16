@@ -35,6 +35,6 @@ export function Landing() {
       <div className="path-landing-visual" aria-hidden="true"><div className="path-door"><span>8</span><small>дней пути</small></div><p>«Одна тяга —<br />не приказ»</p></div>
     </section>
     <section id="how" className="path-how"><header><span>Как это работает</span><h2>Опора на каждом отрезке</h2></header><div><article><i>01</i><h3>Отмечай честно</h3><p>Фиксируй сигареты и триггеры без оценки себя.</p></article><article><i>02</i><h3>Пережди волну</h3><p>Получи одно короткое действие на ближайшие минуты.</p></article><article><i>03</i><h3>Видь свой путь</h3><p>Накопленный прогресс не исчезает из-за сложного дня.</p></article></div></section>
-    <footer className="path-public-footer"><p>Сервис не заменяет медицинскую помощь и не гарантирует результат.</p><nav><a href="/terms.html">Условия</a><a href="/privacy.html">Конфиденциальность</a><a href="/feedback">Обратная связь</a></nav></footer>
+    <footer className="path-public-footer"><p>Сервис не заменяет медицинскую помощь и не гарантирует результат.</p><nav><a href="/terms.html">Условия</a><a href="/privacy.html">Конфиденциальность</a><a href="/consent.html">Согласие</a><a href="/feedback">Обратная связь</a></nav></footer>
   </main>;
 }

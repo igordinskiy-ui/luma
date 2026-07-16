@@ -27,7 +27,7 @@ switch activates the additional Telegram, editorial and legal gates below.
 | `CORS_ORIGINS` | Comma-separated allowed origins, normally `https://<DOMAIN>`. |
 | `REDIS_PASSWORD` | New random secret, at least 32 characters; never use the development default. |
 | `REDIS_URL` | Redis URL that includes the URL-encoded `REDIS_PASSWORD`; it must refer to the internal `redis` host. |
-| `RISK_ENGINE_VERSION` | `rules_v1` for the reviewed model, or `baseline` during an incident. |
+| `RISK_ENGINE_VERSION` | Must be `baseline`; user health/risk scoring is outside the product boundary. |
 | `ADMIN_TELEGRAM_IDS` | Comma-separated Telegram numeric IDs for staff overview and feedback triage; leave empty to disable staff endpoints. |
 | `ACQUISITION_SOURCES` | Optional comma-separated allowlist of short, non-personal Telegram `startapp` campaign codes. Unlisted codes are discarded. |
 
@@ -42,7 +42,7 @@ switch activates the additional Telegram, editorial and legal gates below.
 | `CONTENT_CATALOGUE_DIGEST` | Exact runtime API catalogue SHA-256 printed by `python -c "from app.content import CONTENT_DIGEST; print(CONTENT_DIGEST)"` in `apps/api`. |
 | `LEGAL_DOCUMENTS_STATUS` | Exactly `approved` only after a legal owner has filled and approved the public policy and terms templates. |
 | `LEGAL_DOCUMENTS_VERSION` | Immutable identifier of those approved documents (for example, `2026-07-14`); it is recorded with each consent. |
-| `LEGAL_DOCUMENTS_DIGEST` | Exact lowercase SHA-256 printed by `python scripts/legal_manifest.py`; it binds consent to the bytes and filenames of `privacy.html` and `terms.html`. |
+| `LEGAL_DOCUMENTS_DIGEST` | Exact lowercase SHA-256 printed by `python scripts/legal_manifest.py`; it binds consent to the bytes and filenames of `consent.html`, `privacy.html` and `terms.html`. |
 
 ## Optional integrations
 

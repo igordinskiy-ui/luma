@@ -1,20 +1,25 @@
-from datetime import datetime, timedelta
-from sqlalchemy import select
 from sqlalchemy.orm import Session
-from .content import COPING, intervention
-from .config import settings
+from .content import intervention
 
 def assess(db: Session, user_id: int) -> tuple[str, str, list[str]]:
-    # Delayed import keeps the content catalogue independently testable.
+    """Select a general self-help prompt without scoring the user's health.
+
+    The service deliberately does not calculate addiction severity, relapse
+    probability, a medical risk, or any other clinical/health inference.  The
+    most recent user-selected context is used only to choose between the same
+    catalogue of general, non-medical prompts.  The legacy ``risk`` return
+    value remains constant for API compatibility and must not be shown as an
+    assessment of the user.
+    """
     from .models import BehaviorEvent
-    since = datetime.utcnow() - timedelta(hours=24)
-    events = list(db.scalars(select(BehaviorEvent).where(BehaviorEvent.user_id == user_id, BehaviorEvent.created_at >= since).order_by(BehaviorEvent.created_at.desc())))
-    cravings = [e for e in events if e.kind == "craving"]
-    relapses = [e for e in events if e.kind == "relapse"]
-    triggers = [e.trigger for e in events if e.trigger][:5]
-    score = min(10, len(cravings) * 2 + len(relapses) * 4 + sum((e.intensity or 0) >= 4 for e in cravings))
-    # Environment-controlled beta flag. "baseline" keeps tailored coping
-    # content but disables the evolving risk classification immediately.
-    risk = "low" if settings.risk_engine_version == "baseline" else ("high" if score >= 6 else "medium" if score >= 3 else "low")
+    from sqlalchemy import select
+
+    events = list(db.scalars(
+        select(BehaviorEvent)
+        .where(BehaviorEvent.user_id == user_id)
+        .order_by(BehaviorEvent.created_at.desc())
+        .limit(5)
+    ))
+    triggers = [event.trigger for event in events if event.trigger]
     top = next((t for t in triggers if t), "default")
-    return risk, intervention(top), list(dict.fromkeys(t for t in triggers if t))
+    return "low", intervention(top), list(dict.fromkeys(t for t in triggers if t))

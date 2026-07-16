@@ -1,9 +1,9 @@
-"""Versioned, non-medical micro-intervention catalogue for editorial review."""
+"""Versioned catalogue of general, non-medical self-help prompts."""
 import hashlib
 import json
 
 CONTENT_VERSION = "v1-draft"
-EDITORIAL_STATUS = "pending_medical_review"
+EDITORIAL_STATUS = "pending_medical_content_and_legal_review"
 
 BOT_MESSAGES = {
     "start": "Я помогу пройти путь от последней пачки к жизни без сигарет. Открой помощника и начни без давления.",

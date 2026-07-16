@@ -18,7 +18,11 @@ from legal_manifest import legal_documents_digest
 
 
 ROOT = Path(__file__).resolve().parents[1]
-LEGAL_PAGES = (ROOT / "apps" / "web" / "public" / "privacy.html", ROOT / "apps" / "web" / "public" / "terms.html")
+LEGAL_PAGES = (
+    ROOT / "apps" / "web" / "public" / "consent.html",
+    ROOT / "apps" / "web" / "public" / "privacy.html",
+    ROOT / "apps" / "web" / "public" / "terms.html",
+)
 CAMPAIGN_CODE = re.compile(r"[A-Za-z0-9_-]{1,64}\Z")
 PLACEHOLDER_PREFIX = "[" * 2
 CONTENT_DIGEST = runpy.run_path(str(ROOT / "apps" / "api" / "app" / "content.py"))["CONTENT_DIGEST"]
@@ -90,9 +94,9 @@ def main() -> int:
         if not version or version == "template" or PLACEHOLDER_PREFIX in version:
             fail(errors, "LEGAL_DOCUMENTS_VERSION must identify approved documents")
         if env.get("LEGAL_DOCUMENTS_DIGEST") != legal_documents_digest():
-            fail(errors, "LEGAL_DOCUMENTS_DIGEST must match the committed privacy policy and terms")
-    if env.get("RISK_ENGINE_VERSION") not in {"rules_v1", "baseline"}:
-        fail(errors, "RISK_ENGINE_VERSION must be rules_v1 or baseline")
+            fail(errors, "LEGAL_DOCUMENTS_DIGEST must match all committed legal documents")
+    if env.get("RISK_ENGINE_VERSION") != "baseline":
+        fail(errors, "RISK_ENGINE_VERSION must be baseline; public health/risk scoring is prohibited")
 
     for page in LEGAL_PAGES if public_launch else ():
         try:
@@ -100,7 +104,7 @@ def main() -> int:
         except OSError:
             fail(errors, f"required legal page is unavailable: {page.relative_to(ROOT)}")
             continue
-        if PLACEHOLDER_PREFIX in contents or "Шаблон для юридического утверждения" in contents or 'data-approval="pending"' in contents:
+        if PLACEHOLDER_PREFIX in contents or "data-required-field" in contents or "Шаблон для юридического утверждения" in contents or 'data-approval="pending"' in contents:
             fail(errors, f"legal page is not approved: {page.relative_to(ROOT)}")
         elif version and version not in contents:
             fail(errors, f"LEGAL_DOCUMENTS_VERSION is not displayed in {page.relative_to(ROOT)}")

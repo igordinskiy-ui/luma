@@ -20,7 +20,7 @@ def set_valid_production(monkeypatch):
     monkeypatch.setattr(settings, "legal_documents_status", "approved")
     monkeypatch.setattr(settings, "legal_documents_version", "2026-07-14")
     monkeypatch.setattr(settings, "legal_documents_digest", "a" * 64)
-    monkeypatch.setattr(settings, "risk_engine_version", "rules_v1")
+    monkeypatch.setattr(settings, "risk_engine_version", "baseline")
 
 def test_production_rejects_short_session_secret(monkeypatch):
     monkeypatch.setattr(settings, "app_environment", "production")

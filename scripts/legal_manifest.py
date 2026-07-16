@@ -1,4 +1,4 @@
-"""Print the immutable digest of the public privacy policy and terms."""
+"""Print the immutable digest of all public legal documents."""
 from __future__ import annotations
 
 import hashlib
@@ -6,6 +6,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 LEGAL_PAGES = (
+    ROOT / "apps" / "web" / "public" / "consent.html",
     ROOT / "apps" / "web" / "public" / "privacy.html",
     ROOT / "apps" / "web" / "public" / "terms.html",
 )

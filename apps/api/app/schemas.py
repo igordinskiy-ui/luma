@@ -178,7 +178,9 @@ class DashboardOut(BaseModel):
     next_milestone_label: str | None = None
     avoided_cigarettes: int
     saved_money: float
-    risk: str
+    # Deprecated v1 compatibility field. It is constant and is not a personal
+    # health, addiction or relapse-risk classification.
+    risk: Literal["low"]
     intervention: str
     reasons: str
     recent_triggers: list[str]
