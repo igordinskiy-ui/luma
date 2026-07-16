@@ -77,6 +77,7 @@ jobs:
         run: |
           test "$(docker image inspect luma-postgres:local --format '{{.Config.User}}')" = "postgres"
           docker run --rm --entrypoint sh luma-postgres:local -c 'test ! -e /usr/local/bin/gosu'
+          test "$(docker image inspect luma-caddy:local --format '{{.Config.User}}')" = "caddy"
           docker run --rm --entrypoint sh luma-caddy:local -c 'test ! -e /usr/bin/curl && test ! -e /usr/lib/libcurl.so.4'
           docker run --rm luma-caddy:local caddy version | grep '^v2.11.4 '
       - name: Validate reverse-proxy configuration
