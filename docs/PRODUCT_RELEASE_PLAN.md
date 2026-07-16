@@ -148,6 +148,8 @@
 
 - 2026-07-17 — Stage 8 repository-owned deploy runner: добавлен fail-closed `scripts/deploy_production.py` для restricted SSH forced command. Он принимает только полный SHA, разрешает только ancestry `origin/main` и не позволяет откатиться ниже закреплённой runner revision, блокирует dirty/concurrent deploy, собирает все Compose-сервисы, выполняет scoped `--remove-orphans --wait`, проверяет реальный процесс Caddy UID/GID 1000 и `NoNewPrivs=1`, затем внешний HTTPS `/health`/`/ready` и опциональный synthetic dashboard/export. Секретный smoke token передаётся только через environment, evidence line не содержит чувствительных данных. GitHub deploy job умеет валидировать evidence при `LUMA_DEPLOY_EVIDENCE_REQUIRED=true`, до установки legacy runner даёт явный warning. Unit/pin срез 23/23, py_compile и production-like Docker-init runtime contract успешны; host installation/cutover и обязательный evidence mode остаются внешними действиями владельца, описанными в `DEPLOY_RUNNER.md`.
 
+- 2026-07-17 — hosted deploy-runner regression: GitHub Actions run `29541166942` успешно завершил API 127/127 без skip, Vitest 21/21, Playwright/axe 129/129, repository-security, exact hardened runtime contracts и все image scans. Legacy VPS command развернул core revision `276d342` и довёл db/redis/api/worker/web до healthy; новый workflow корректно выдал отдельный warning об отсутствии `LUMA_DEPLOY_EVIDENCE`, а лог снова подтвердил orphan старого init-сервиса. Таким образом CI-контракт доказан, но edge/external smoke по-прежнему не заявляются до установки владельцем runner и включения `LUMA_DEPLOY_EVIDENCE_REQUIRED=true`.
+
 ## Quality gates
 
 - Backend: unit, integration, ownership, idempotency, concurrency, rate limits,
