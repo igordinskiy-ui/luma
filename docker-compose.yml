@@ -1,6 +1,6 @@
 services:
   db:
-    image: postgres:16.6-alpine
+    image: postgres:16.14-alpine@sha256:57c72fd2a128e416c7fcc499958864df5301e940bca0a56f58fddf30ffc07777
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-kurilka}
       POSTGRES_USER: ${POSTGRES_USER:-kurilka}
@@ -14,7 +14,7 @@ services:
       retries: 20
     networks: [data]
   redis:
-    image: redis:7.4.1-alpine
+    image: redis:7.4.9-alpine@sha256:6ab0b6e7381779332f97b8ca76193e45b0756f38d4c0dcda72dbb3c32061ab99
     # Redis holds OIDC exchanges, rate-limit counters, and the outbox lock.
     # Keep it private and require authentication even in the local stack so a
     # missing production override cannot accidentally create an open instance.

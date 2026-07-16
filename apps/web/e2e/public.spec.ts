@@ -7,6 +7,10 @@ test('public landing is accessible and has one primary entry action', async ({ p
   await expect(page.getByRole('link', { name: /Войти через Telegram/ })).toHaveCount(1);
   const results = await new AxeBuilder({ page }).analyze();
   expect(results.violations).toEqual([]);
+  const undersizedFooterTargets = await page.evaluate(() => Array.from(document.querySelectorAll('.path-public-footer a'))
+    .map(element => ({ text: element.textContent?.trim(), ...element.getBoundingClientRect().toJSON() }))
+    .filter(rect => rect.width < 44 || rect.height < 44));
+  expect(undersizedFooterTargets).toEqual([]);
 });
 
 test('production hides the development-only design route', async ({ page }) => {
