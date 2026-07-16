@@ -11,6 +11,8 @@ CONTAINER_FILES = (
     ROOT / "docker-compose.prod.yml",
     ROOT / "apps" / "api" / "Dockerfile",
     ROOT / "apps" / "web" / "Dockerfile",
+    ROOT / "apps" / "postgres" / "Dockerfile",
+    ROOT / "apps" / "caddy" / "Dockerfile",
     WORKFLOW,
 )
 USES = re.compile(r"^\s*(?:-\s*)?uses:\s*([^@\s]+)@([^\s#]+)")

@@ -1,0 +1,13 @@
+FROM caddy:2.11.4-builder-alpine@sha256:8e89605351333ad2cc2f3bcc95275a2ccc427f88914050e86a5fde0fd77a63c4 AS build
+
+# Rebuild the stock binary with the builder's patched Go 1.26.5 toolchain.
+RUN xcaddy build v2.11.4 --output /usr/bin/caddy
+
+FROM caddy:2.11.4-alpine@sha256:5f5c8640aae01df9654968d946d8f1a56c497f1dd5c5cda4cf95ab7c14d58648
+
+# curl is not used at runtime and currently carries fixed High CVEs in the
+# upstream image. Removing it also removes libcurl; the rebuilt Caddy binary
+# replaces the vulnerable Go 1.26.3 binary from the runtime layer.
+RUN apk del --no-network curl \
+    && rm -f /usr/bin/caddy
+COPY --from=build --chmod=0755 /usr/bin/caddy /usr/bin/caddy
