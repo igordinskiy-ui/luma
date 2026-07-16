@@ -105,9 +105,12 @@ def validate_security_settings() -> None:
             raise RuntimeError("TELEGRAM_OIDC_REDIRECT_URI must be the same-origin HTTPS /api/v1/auth/oidc/callback URL")
     if any(not re.fullmatch(r"[A-Za-z0-9_-]{1,64}", value) for value in approved_acquisition_sources()):
         raise RuntimeError("ACQUISITION_SOURCES must contain only short approved campaign codes")
-    if settings.risk_engine_version != "baseline": raise RuntimeError("RISK_ENGINE_VERSION must be baseline; user health/risk scoring is prohibited")
+    if settings.risk_engine_version not in {"baseline", "rules_v1"}:
+        raise RuntimeError("RISK_ENGINE_VERSION must be baseline (rules_v1 is accepted only for a closed preview migration)")
     if not settings.public_launch_enabled:
         return
+    if settings.risk_engine_version != "baseline":
+        raise RuntimeError("RISK_ENGINE_VERSION must be baseline before public launch; user health/risk scoring is prohibited")
     if len(settings.telegram_webhook_secret) < 24: raise RuntimeError("TELEGRAM_WEBHOOK_SECRET must contain at least 24 characters")
     if not settings.telegram_bot_token: raise RuntimeError("TELEGRAM_BOT_TOKEN must be configured before public launch")
     if settings.content_review_status != "approved": raise RuntimeError("CONTENT_REVIEW_STATUS must be approved before public launch")

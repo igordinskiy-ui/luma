@@ -46,6 +46,20 @@ def test_production_rejects_unknown_risk_engine(monkeypatch):
     with pytest.raises(RuntimeError, match="RISK_ENGINE_VERSION"):
         validate_security_settings()
 
+
+def test_closed_preview_accepts_legacy_risk_flag_without_enabling_scoring(monkeypatch):
+    set_valid_production(monkeypatch)
+    monkeypatch.setattr(settings, "public_launch_enabled", False)
+    monkeypatch.setattr(settings, "risk_engine_version", "rules_v1")
+    validate_security_settings()
+
+
+def test_public_launch_requires_baseline_risk_flag(monkeypatch):
+    set_valid_production(monkeypatch)
+    monkeypatch.setattr(settings, "risk_engine_version", "rules_v1")
+    with pytest.raises(RuntimeError, match="before public launch"):
+        validate_security_settings()
+
 def test_production_requires_proxy_secret(monkeypatch):
     monkeypatch.setattr(settings, "app_environment", "production")
     monkeypatch.setattr(settings, "session_secret", "x" * 32)

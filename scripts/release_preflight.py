@@ -95,8 +95,11 @@ def main() -> int:
             fail(errors, "LEGAL_DOCUMENTS_VERSION must identify approved documents")
         if env.get("LEGAL_DOCUMENTS_DIGEST") != legal_documents_digest():
             fail(errors, "LEGAL_DOCUMENTS_DIGEST must match all committed legal documents")
-    if env.get("RISK_ENGINE_VERSION") != "baseline":
-        fail(errors, "RISK_ENGINE_VERSION must be baseline; public health/risk scoring is prohibited")
+    risk_engine = env.get("RISK_ENGINE_VERSION")
+    if risk_engine not in {"baseline", "rules_v1"}:
+        fail(errors, "RISK_ENGINE_VERSION must be baseline (rules_v1 is accepted only for a closed preview migration)")
+    elif public_launch and risk_engine != "baseline":
+        fail(errors, "RISK_ENGINE_VERSION must be baseline before public launch; public health/risk scoring is prohibited")
 
     for page in LEGAL_PAGES if public_launch else ():
         try:

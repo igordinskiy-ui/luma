@@ -27,7 +27,7 @@ switch activates the additional Telegram, editorial and legal gates below.
 | `CORS_ORIGINS` | Comma-separated allowed origins, normally `https://<DOMAIN>`. |
 | `REDIS_PASSWORD` | New random secret, at least 32 characters; never use the development default. |
 | `REDIS_URL` | Redis URL that includes the URL-encoded `REDIS_PASSWORD`; it must refer to the internal `redis` host. |
-| `RISK_ENGINE_VERSION` | Must be `baseline`; user health/risk scoring is outside the product boundary. |
+| `RISK_ENGINE_VERSION` | Must be `baseline` before public launch. A closed preview temporarily accepts legacy `rules_v1` only for deploy migration; runtime scoring remains removed and staff reports effective `baseline`. |
 | `ADMIN_TELEGRAM_IDS` | Comma-separated Telegram numeric IDs for staff overview and feedback triage; leave empty to disable staff endpoints. |
 | `ACQUISITION_SOURCES` | Optional comma-separated allowlist of short, non-personal Telegram `startapp` campaign codes. Unlisted codes are discarded. |
 

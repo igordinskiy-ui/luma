@@ -29,7 +29,9 @@ def production_environment(*, public_launch: bool) -> dict[str, str]:
 
 
 def test_closed_production_preview_passes_without_faking_external_approvals(monkeypatch, capsys):
-    monkeypatch.setattr(release_preflight.os, "environ", production_environment(public_launch=False))
+    environment = production_environment(public_launch=False)
+    environment["RISK_ENGINE_VERSION"] = "rules_v1"
+    monkeypatch.setattr(release_preflight.os, "environ", environment)
 
     assert release_preflight.main() == 0
     assert "public user access and notifications are disabled" in capsys.readouterr().out
@@ -52,7 +54,7 @@ def test_public_launch_rejects_pending_legal_fields_and_non_baseline_scoring(mon
 
     assert release_preflight.main() == 1
     errors = capsys.readouterr().err.replace("\\", "/")
-    assert "RISK_ENGINE_VERSION must be baseline" in errors
+    assert "RISK_ENGINE_VERSION must be baseline before public launch" in errors
     for name in ("consent.html", "privacy.html", "terms.html"):
         assert f"legal page is not approved: apps/web/public/{name}" in errors
     assert environment["TELEGRAM_BOT_TOKEN"] not in errors

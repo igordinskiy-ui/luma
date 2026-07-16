@@ -816,7 +816,9 @@ def admin_overview(
         "content_review_status": settings.content_review_status,
         "content_version": CONTENT_VERSION,
         "content_digest": CONTENT_DIGEST,
-        "risk_engine_version": settings.risk_engine_version,
+        # Runtime selection is deliberately baseline even while a closed VPS
+        # preview still carries the deprecated rules_v1 environment value.
+        "risk_engine_version": "baseline",
     }
 
 @app.get("/v1/admin/feedback")
