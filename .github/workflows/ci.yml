@@ -73,6 +73,7 @@ jobs:
         run: |
           docker compose build db api worker web
           docker build -t luma-caddy:local ./apps/caddy
+          docker build -f apps/backup/Dockerfile -t luma-backup:local .
       - name: Validate hardened runtime contracts
         run: |
           test "$(docker image inspect luma-postgres:local --format '{{.Config.User}}')" = "postgres"
@@ -88,6 +89,10 @@ jobs:
           trap 'docker volume rm "$caddy_data" "$caddy_config" >/dev/null' EXIT
           docker run --rm --user 0:0 --entrypoint sh -v "$caddy_data:/data" -v "$caddy_config:/config" luma-caddy:local -c 'touch /data/root-owned /config/root-owned; chmod 600 /data/root-owned /config/root-owned'
           docker run --rm --init --user 0:0 --read-only --tmpfs /tmp:size=32m --cap-drop ALL --cap-add CHOWN --cap-add SETUID --cap-add SETGID --sysctl net.ipv4.ip_unprivileged_port_start=0 -v "$caddy_data:/data" -v "$caddy_config:/config" luma-caddy:local sh -c 'test "$(id -u)" = 1000; grep -Eq "^NoNewPrivs:[[:space:]]+1" /proc/$$/status; echo ok >> /data/root-owned; echo ok >> /config/root-owned'
+          test "$(docker image inspect luma-backup:local --format '{{.Config.User}}')" = "postgres"
+          docker run --rm --entrypoint sh luma-backup:local -c 'test ! -e /usr/local/bin/gosu; test -x /usr/local/bin/backup-postgres; test -x /usr/local/bin/restore-drill; sh -n /usr/local/bin/backup-postgres; sh -n /usr/local/bin/restore-drill'
+      - name: Run isolated backup and restore drill
+        run: bash scripts/backup_restore_smoke.sh
       - name: Validate reverse-proxy configuration
         env:
           DOMAIN: ci.example.test
@@ -127,6 +132,13 @@ jobs:
         uses: aquasecurity/trivy-action@a9c7b0f06e461e9d4b4d1711f154ee024b8d7ab8 # v0.36.0
         with:
           image-ref: luma-caddy:local
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+          exit-code: '1'
+      - name: Scan backup tool image
+        uses: aquasecurity/trivy-action@a9c7b0f06e461e9d4b4d1711f154ee024b8d7ab8 # v0.36.0
+        with:
+          image-ref: luma-backup:local
           severity: CRITICAL,HIGH
           ignore-unfixed: true
           exit-code: '1'
