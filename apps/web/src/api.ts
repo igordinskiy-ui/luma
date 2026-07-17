@@ -3,6 +3,8 @@ const tokenKey = 'kurilka-access-token';
 const userKey = 'kurilka-user-id';
 const oidcStateKey = 'kurilka-oidc-state';
 const oidcReturnKey = 'kurilka-oidc-return';
+const oidcPendingKey = 'kurilka-oidc-pending';
+const oidcPendingTtlMs = 90_000;
 export const safeOidcReturnPath = (value: string | null) => value && /^\/(?:app(?:\/.*)?|journal|settings|feedback|staff)$/.test(value) ? value : '/app';
 
 export type Dashboard = { phase: 'preparation' | 'last_pack' | 'quit' | 'paused'; paused_from?: 'preparation' | 'last_pack' | 'quit' | null; remaining: number; cigarettes_per_pack: number; pack_price: number; smoke_free_seconds: number; best_smoke_free_seconds: number; attempt_number: number; next_milestone_seconds: number | null; next_milestone_label: string | null; avoided_cigarettes: number; saved_money: number; /** Deprecated v1 compatibility value; never a personal assessment. */ risk: 'low'; intervention: string; reasons: string; recent_triggers: string[]; preparation_steps: string[]; recovery_until: string | null; recovery_steps: string[]; target_quit_at: string | null };
@@ -41,31 +43,74 @@ export function clearSession() {
   sessionStorage.removeItem(userKey);
   sessionStorage.removeItem(oidcStateKey);
   sessionStorage.removeItem(oidcReturnKey);
+  sessionStorage.removeItem(oidcPendingKey);
   sessionStorage.removeItem('kurilka-client-session-id');
   sessionStorage.removeItem('kurilka-client-crash-reported');
 }
 
 export function beginOidcLogin() {
   const clientState = crypto.randomUUID();
+  sessionStorage.removeItem(oidcPendingKey);
   sessionStorage.setItem(oidcStateKey, clientState);
   sessionStorage.setItem(oidcReturnKey, safeOidcReturnPath(location.pathname));
   location.assign(`${API}/auth/oidc/start?client_state=${encodeURIComponent(clientState)}`);
 }
 
-export async function consumeOidcCompletion(): Promise<boolean> {
-  const values = new URLSearchParams(location.hash.slice(1));
-  const code = values.get('oidc_code');
-  const state = values.get('state');
-  if (!code && !state) return false;
-  history.replaceState(null, '', location.pathname + location.search);
-  const expected = sessionStorage.getItem(oidcStateKey);
-  const returnPath = safeOidcReturnPath(sessionStorage.getItem(oidcReturnKey));
+export class OidcCompletionError extends Error {
+  constructor(public reason: 'invalid' | 'expired' | 'temporary', public retryable: boolean) {
+    super(reason);
+  }
+}
+
+type PendingOidcCompletion = { code: string; state: string; createdAt: number };
+
+function clearOidcCompletion() {
   sessionStorage.removeItem(oidcStateKey);
   sessionStorage.removeItem(oidcReturnKey);
-  if (!code || !state || !expected || state !== expected) throw new Error('OIDC state is invalid');
-  const response = await fetch(`${API}/auth/oidc/complete`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ code, client_state: state }) });
-  if (!response.ok) throw new Error('OIDC completion failed');
+  sessionStorage.removeItem(oidcPendingKey);
+}
+
+export async function consumeOidcCompletion(): Promise<boolean> {
+  const values = new URLSearchParams(location.hash.slice(1));
+  const callbackCode = values.get('oidc_code');
+  const callbackState = values.get('state');
+  let pending: PendingOidcCompletion | null = null;
+  if (callbackCode || callbackState) {
+    history.replaceState(null, '', location.pathname + location.search);
+    const expected = sessionStorage.getItem(oidcStateKey);
+    if (!callbackCode || !callbackState || !expected || callbackState !== expected) {
+      clearOidcCompletion();
+      throw new OidcCompletionError('invalid', false);
+    }
+    pending = { code: callbackCode, state: callbackState, createdAt: Date.now() };
+    sessionStorage.setItem(oidcPendingKey, JSON.stringify(pending));
+  } else {
+    try { pending = JSON.parse(sessionStorage.getItem(oidcPendingKey) || 'null') as PendingOidcCompletion | null; }
+    catch { clearOidcCompletion(); throw new OidcCompletionError('invalid', false); }
+  }
+  if (!pending) return false;
+  const expected = sessionStorage.getItem(oidcStateKey);
+  const returnPath = safeOidcReturnPath(sessionStorage.getItem(oidcReturnKey));
+  if (!expected || pending.state !== expected) {
+    clearOidcCompletion();
+    throw new OidcCompletionError('invalid', false);
+  }
+  if (Date.now() - pending.createdAt > oidcPendingTtlMs) {
+    clearOidcCompletion();
+    throw new OidcCompletionError('expired', false);
+  }
+  let response: Response;
+  try {
+    response = await fetch(`${API}/auth/oidc/complete`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ code: pending.code, client_state: pending.state }) });
+  } catch {
+    throw new OidcCompletionError('temporary', true);
+  }
+  if (!response.ok) {
+    if (response.status < 500) clearOidcCompletion();
+    throw new OidcCompletionError(response.status >= 500 ? 'temporary' : 'expired', response.status >= 500);
+  }
   storeSession(await response.json());
+  clearOidcCompletion();
   if (location.pathname !== returnPath) {
     history.replaceState(null, '', returnPath);
     window.dispatchEvent(new PopStateEvent('popstate'));

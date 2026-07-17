@@ -26,6 +26,7 @@ import './path.css';
 import './path-app.css';
 import './path-screens.css';
 import './features/journey/journey.css';
+import './features/app/auth.css';
 import './features/onboarding/onboarding.css';
 
 if ('serviceWorker' in navigator) {

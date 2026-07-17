@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { api, ApiError, authenticate, authToken, consumeOidcCompletion, currentUserId, Dashboard } from '../../api';
+import { api, ApiError, authenticate, authToken, beginOidcLogin, consumeOidcCompletion, currentUserId, Dashboard, OidcCompletionError } from '../../api';
 import { syncQueued } from '../../offline';
 import { initialiseTelegram } from '../../telegram';
 import { DashboardView } from '../journey/DashboardView';
@@ -20,6 +20,7 @@ export function App({ initialScreen = 'home' }: { initialScreen?: AppScreen }) {
   const [state, setState] = useState<'loading' | 'landing' | 'auth' | 'consent' | 'onboarding' | 'dashboard' | 'offline' | 'rate' | 'maintenance' | 'service' | 'error'>('loading');
   const [dashboard, setDashboard] = useState<Dashboard | null>(null);
   const [errorRequestId, setErrorRequestId] = useState<string | null>(null);
+  const [authIssue, setAuthIssue] = useState<'session' | 'expired' | 'temporary'>('session');
   const [legalIdentity, setLegalIdentity] = useState({ version: '', digest: '' });
   const refresh = async () => {
     setErrorRequestId(null);
@@ -34,7 +35,7 @@ export function App({ initialScreen = 'home' }: { initialScreen?: AppScreen }) {
     } catch (error) {
       if (error instanceof ApiError) setErrorRequestId(error.requestId || null);
       if (!navigator.onLine || error instanceof TypeError) setState('offline');
-      else if (error instanceof ApiError && error.status === 401) setState('auth');
+      else if (error instanceof ApiError && error.status === 401) { setAuthIssue('session'); setState('auth'); }
       else if (error instanceof ApiError && error.status === 429) setState('rate');
       else if (error instanceof ApiError && error.status === 503 && error.code === 'public_launch_disabled') setState('maintenance');
       else if (error instanceof ApiError && error.status === 503) setState('service');
@@ -48,7 +49,10 @@ export function App({ initialScreen = 'home' }: { initialScreen?: AppScreen }) {
     const telegram = initialiseTelegram();
     const bootstrap = async () => {
       try { await consumeOidcCompletion(); }
-      catch { setState('auth'); return; }
+      catch (error) {
+        setAuthIssue(error instanceof OidcCompletionError && error.retryable ? 'temporary' : 'expired');
+        setState('auth'); return;
+      }
       if (authToken()) { await refresh(); return; }
       if (!telegram?.initData) { setState('landing'); return; }
       authenticate(telegram.initData).then(refresh).catch(async () => {
@@ -72,10 +76,22 @@ export function App({ initialScreen = 'home' }: { initialScreen?: AppScreen }) {
     };
   }, []);
 
+  const retryOidcCompletion = async () => {
+    setState('loading');
+    try {
+      const consumed = await consumeOidcCompletion();
+      if (!consumed) { setAuthIssue('expired'); setState('auth'); return; }
+      await refresh();
+    } catch (error) {
+      setAuthIssue(error instanceof OidcCompletionError && error.retryable ? 'temporary' : 'expired');
+      setState('auth');
+    }
+  };
+
   if (state === 'loading') return <main className="path-page path-loading" role="status"><span className="path-logo-large">П</span><i className="path-loader" /><p>Открываем твой путь…</p></main>;
   if (state === 'landing') return <Landing />;
   const supportCode = errorRequestId && <p className="path-request-id">Код обращения: <code>{errorRequestId}</code></p>;
-  if (state === 'auth') return <main className="path-page path-state-page"><span className="path-logo-large">П</span><h1>Не удалось войти</h1><p>Открой помощника через Telegram-бота или обнови Mini App.</p>{supportCode}<a className="path-button primary" href="/">Попробовать ещё раз</a></main>;
+  if (state === 'auth') return <main className="path-page path-state-page"><span className="path-logo-large">П</span><span className="path-kicker">Без потери прогресса</span><h1>{authIssue === 'temporary' ? 'Связь прервалась' : authIssue === 'expired' ? 'Время входа истекло' : 'Нужно войти снова'}</h1><p>{authIssue === 'temporary' ? 'Telegram уже подтвердил вход. Повтори завершение — сохранённый план и текущий экран останутся на месте.' : authIssue === 'expired' ? 'Одноразовое подтверждение больше не действует. Начни вход заново — мы вернём тебя на этот экран.' : 'Сессия завершилась. Войди через Telegram, чтобы безопасно продолжить с этого места.'}</p>{supportCode}<div className="path-state-actions">{authIssue === 'temporary' && <button className="path-button primary" type="button" onClick={retryOidcCompletion}>Повторить завершение</button>}<button className={authIssue === 'temporary' ? 'path-button ghost' : 'path-button primary'} type="button" onClick={beginOidcLogin}>{authIssue === 'temporary' ? 'Начать вход заново' : 'Войти через Telegram'}</button></div><a href="/">На главную</a></main>;
   if (state === 'offline') return <main className="path-page path-state-page"><span className="path-logo-large">П</span><h1>Сейчас нет сети</h1><p>Честные отметки и начатые паузы останутся на устройстве. Подключись к сети и продолжи.</p><button className="path-button primary" type="button" onClick={refresh}>Проверить соединение</button></main>;
   if (state === 'rate') return <main className="path-page path-state-page"><span className="path-logo-large">П</span><h1>Нужна короткая пауза</h1><p>Запросов было слишком много. Подожди минуту — введённые данные не очищены.</p>{supportCode}<button className="path-button primary" type="button" onClick={refresh}>Повторить</button></main>;
   if (state === 'maintenance') return <main className="path-page path-state-page"><span className="path-logo-large">П</span><h1>Готовим запуск</h1><p>Сервис уже развёрнут, но вход пока закрыт. Мы откроем его после завершения проверок контента и документов.</p>{supportCode}<a className="path-button primary" href="/">На главную</a></main>;

@@ -1,0 +1,21 @@
+.path-state-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+}
+
+.path-state-actions .path-button {
+  margin: 0;
+}
+
+@media (max-width: 430px) {
+  .path-state-actions {
+    width: 100%;
+    flex-direction: column;
+  }
+
+  .path-state-actions .path-button {
+    width: 100%;
+  }
+}

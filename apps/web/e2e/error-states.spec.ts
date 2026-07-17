@@ -2,7 +2,7 @@ import AxeBuilder from '@axe-core/playwright';
 import { expect, test } from '@playwright/test';
 
 const states = [
-  { status: 401, heading: 'Не удалось войти', code: 'session_expired' },
+  { status: 401, heading: 'Нужно войти снова', code: 'session_expired' },
   { status: 429, heading: 'Нужна короткая пауза', code: 'rate_limited' },
   { status: 503, heading: 'Сервис временно недоступен', code: 'dependency_unavailable' },
   { status: 500, heading: 'Не получилось открыть путь', code: 'internal_error' },
