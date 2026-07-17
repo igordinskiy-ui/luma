@@ -6,7 +6,29 @@ import json
 import os
 import sys
 from urllib.error import HTTPError
+from urllib.parse import urlsplit
 from urllib.request import Request, urlopen
+
+
+def validate_base_url(value: str) -> str:
+    """Accept one credential-free HTTPS origin, never a path or query."""
+    try:
+        parsed = urlsplit(value)
+        port = parsed.port
+    except ValueError as exc:
+        raise ValueError("base URL must be a valid HTTPS origin") from exc
+    if (
+        parsed.scheme != "https"
+        or not parsed.hostname
+        or parsed.username is not None
+        or parsed.password is not None
+        or parsed.path not in {"", "/"}
+        or parsed.query
+        or parsed.fragment
+        or port is not None and not 1 <= port <= 65535
+    ):
+        raise ValueError("base URL must be a credential-free HTTPS origin")
+    return value.rstrip("/")
 
 
 def call(base: str, path: str, token: str = "", method: str = "GET") -> object:
@@ -27,8 +49,10 @@ def main() -> int:
     parser.add_argument("--token", default=os.environ.get("SMOKE_ACCESS_TOKEN", ""))
     parser.add_argument("--delete", action="store_true", help="Delete the dedicated synthetic account after export")
     args = parser.parse_args()
-    if not args.base_url.startswith("https://"):
-        parser.error("--base-url must be an HTTPS origin")
+    try:
+        args.base_url = validate_base_url(args.base_url)
+    except ValueError as exc:
+        parser.error(str(exc))
     if not args.token:
         parser.error("--token must belong to a dedicated synthetic account")
 

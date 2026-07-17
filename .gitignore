@@ -27,6 +27,7 @@ dist/
 coverage/
 playwright-report/
 test-results/
+load-smoke-evidence.json
 *.tsbuildinfo
 vite.config.js
 vite.config.d.ts

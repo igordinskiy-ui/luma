@@ -16,6 +16,28 @@ Caddy was recreated or that the public origin answered health checks.
 4. Complete the production smoke test from `PRODUCTION_ENVIRONMENT.md`, including export and deletion of a synthetic account.
 5. If health checks fail, stop the rollout, restore the previous image and assess migration compatibility. Do not run `alembic downgrade` unless reversibility is explicitly confirmed and the change owner approves it.
 
+## Capacity smoke
+
+Provision 50 unique synthetic accounts with completed consent/onboarding and
+keep their bearer tokens only in the protected staging runner environment. The
+repository scenario exercises dashboard reads and idempotent craving-event
+writes for two minutes with the release thresholds: read p95 <500 ms, write p95
+<700 ms, request failures <1%, and every response check passing.
+
+```sh
+LOAD_BASE_URL=https://staging.example \
+LOAD_TARGET_KIND=staging \
+LOAD_ACCESS_TOKENS='<50 comma-separated synthetic tokens>' \
+k6 run scripts/load-smoke.js
+```
+
+Archive `load-smoke-evidence.json` with the release ID and k6 console log. The
+JSON contains the target origin, workload, thresholds and observations, but no
+tokens or response payloads. A local or mocked run does not prove staging or
+production capacity. Production load requires explicit owner approval and the
+confirmation value printed by the refused k6 run; never use pilot or support
+accounts for capacity testing.
+
 The closed preview is successful only when `/health` and `/ready` pass while
 `/api/v1/launch-status` reports `false` and protected `/api/v1/*` routes return
 503. Do not configure the Telegram webhook or invite users until the public

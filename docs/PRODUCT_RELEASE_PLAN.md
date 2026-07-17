@@ -164,6 +164,8 @@
 
 - 2026-07-17 — hosted alert-contract regression: GitHub Actions run `29544025067` успешно завершил API, полный web E2E, containers, repository-security с новым pinned `promtool check/test rules` и VPS deploy revision `0434c99`. Это доказывает repository rule contract и доставку API-метрик на сервер, но не наличие production Prometheus/Alertmanager или получение сообщения incident channel.
 
+- 2026-07-17 — Stage 10 load/smoke release contract: существующий k6-сценарий закреплён ровно за 50 уникальными синтетическими аккаунтами и двумя минутами read/write нагрузки. Он fail-closed проверяет credential-free HTTPS origin, требует отдельное owner confirmation перед production-нагрузкой, контролирует dashboard p95 <500 ms, event-write p95 <700 ms, error rate <1% и 100% response checks. После каждого запуска создаётся `load-smoke-evidence.json` со workload, origin, порогами и наблюдениями без bearer-токенов и response payload. Production smoke теперь также отклоняет credentials/path/query/fragment в origin. Локально подтверждены JS syntax, 29/29 focused tooling/deploy tests и compileall; фактический staging/production capacity run не заявляется до выдачи 50 тестовых аккаунтов и выполнения владельцем из защищённого runner.
+
 ## Quality gates
 
 - Backend: unit, integration, ownership, idempotency, concurrency, rate limits,
