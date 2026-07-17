@@ -11,3 +11,10 @@ def test_metrics_expose_cumulative_latency_histogram_and_gauges(monkeypatch):
     assert "kurilka_api_request_duration_ms_sum 900" in output
     assert "kurilka_api_request_duration_ms_count 4" in output
     assert "kurilka_database_up 1" in output
+
+
+def test_delivery_failure_ratio_is_bounded_and_empty_window_is_zero():
+    assert observability.bounded_ratio(0, 0) == 0
+    assert observability.bounded_ratio(1, 4) == 0.25
+    assert observability.bounded_ratio(8, 4) == 1
+    assert observability.bounded_ratio(-1, 4) == 0

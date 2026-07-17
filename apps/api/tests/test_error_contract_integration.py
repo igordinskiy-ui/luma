@@ -91,4 +91,6 @@ def test_internal_metrics_require_the_private_scraper_secret(monkeypatch):
     assert 'kurilka_api_request_duration_ms_bucket{le="500"}' in allowed.text
     assert "kurilka_database_up 1" in allowed.text
     assert "kurilka_outbox_pending" in allowed.text
+    assert "kurilka_deliveries_terminal_24h" in allowed.text
+    assert "kurilka_delivery_failure_ratio_24h" in allowed.text
     assert "kurilka_worker_heartbeat_age_seconds" in allowed.text

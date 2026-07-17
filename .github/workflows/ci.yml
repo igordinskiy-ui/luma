@@ -149,6 +149,10 @@ jobs:
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
         with: { persist-credentials: false, fetch-depth: 0 }
+      - name: Validate observability alert contract
+        run: |
+          docker run --rm --entrypoint /bin/promtool -v "$PWD/ops/prometheus:/rules:ro" prom/prometheus:v3.12.0@sha256:69f5241418838263316593f7274a304b095c40bcf22e57272865da91bd60a8ac check rules /rules/luma-alerts.yml
+          docker run --rm --entrypoint /bin/promtool -v "$PWD/ops/prometheus:/rules:ro" prom/prometheus:v3.12.0@sha256:69f5241418838263316593f7274a304b095c40bcf22e57272865da91bd60a8ac test rules /rules/luma-alerts.test.yml
       - name: Scan filesystem dependencies, config and secrets
         uses: aquasecurity/trivy-action@a9c7b0f06e461e9d4b4d1711f154ee024b8d7ab8 # v0.36.0
         with:

@@ -18,6 +18,12 @@ REQUEST_ID_PATTERN = re.compile(r"[A-Za-z0-9._:-]{1,128}\Z")
 def normalized_request_id(value: str | None) -> str:
     return value if value and REQUEST_ID_PATTERN.fullmatch(value) else str(uuid.uuid4())
 
+
+def bounded_ratio(numerator: int, denominator: int) -> float:
+    if denominator <= 0:
+        return 0.0
+    return min(1.0, max(0.0, numerator / denominator))
+
 class RequestLogMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         request_id = normalized_request_id(request.headers.get("X-Request-ID"))

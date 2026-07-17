@@ -19,7 +19,7 @@ from .journal import decode_cursor, encode_cursor
 from .session import issue_session, session_subject
 from .oidc import consume_browser_exchange, create_browser_exchange, exchange_code, start_url
 from .analytics import track
-from .observability import RequestLogMiddleware, metrics_text, normalized_request_id
+from .observability import RequestLogMiddleware, bounded_ratio, metrics_text, normalized_request_id
 from .rate_limit import enforce
 from .features import FREE_BETA_FEATURES, has_feature
 from .risk import assess
@@ -188,12 +188,18 @@ def internal_metrics(x_proxy_secret: str | None = Header(None, alias="X-Proxy-Se
     if not settings.proxy_shared_secret or x_proxy_secret != settings.proxy_shared_secret:
         raise HTTPException(404, "Not found")
     from redis import Redis
+    delivery_window = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(hours=24)
+    deliveries_terminal_24h = db.scalar(select(func.count(NotificationDelivery.id)).where(NotificationDelivery.status.in_(["sent", "failed"]), NotificationDelivery.created_at >= delivery_window)) or 0
+    deliveries_failed_24h = db.scalar(select(func.count(NotificationDelivery.id)).where(NotificationDelivery.status == "failed", NotificationDelivery.created_at >= delivery_window)) or 0
     gauges = {
         "kurilka_database_up": 1,
         "kurilka_outbox_pending": db.scalar(select(func.count(OutboxEvent.id)).where(OutboxEvent.status == "pending")) or 0,
         "kurilka_outbox_failed": db.scalar(select(func.count(OutboxEvent.id)).where(OutboxEvent.status == "failed")) or 0,
         "kurilka_deliveries_queued": db.scalar(select(func.count(NotificationDelivery.id)).where(NotificationDelivery.status == "queued")) or 0,
         "kurilka_deliveries_failed": db.scalar(select(func.count(NotificationDelivery.id)).where(NotificationDelivery.status == "failed")) or 0,
+        "kurilka_deliveries_terminal_24h": deliveries_terminal_24h,
+        "kurilka_deliveries_failed_24h": deliveries_failed_24h,
+        "kurilka_delivery_failure_ratio_24h": bounded_ratio(deliveries_failed_24h, deliveries_terminal_24h),
         "kurilka_worker_heartbeat_age_seconds": -1,
     }
     redis = Redis.from_url(settings.redis_url, decode_responses=True, socket_timeout=1)

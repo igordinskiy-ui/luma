@@ -20,7 +20,7 @@ USES = re.compile(r"^\s*(?:-\s*)?uses:\s*([^@\s]+)@([^\s#]+)")
 FULL_SHA = re.compile(r"^[0-9a-f]{40}$")
 REMOTE_IMAGE = re.compile(
     r"(?<![\w./-])(?:docker\.io/library/)?"
-    r"(?:postgres|redis|caddy|python|node|nginx):[A-Za-z0-9._-]+"
+    r"(?:(?:prom/)?prometheus|postgres|redis|caddy|python|node|nginx):[A-Za-z0-9._-]+"
     r"(?:@sha256:[0-9a-f]{64})?"
 )
 

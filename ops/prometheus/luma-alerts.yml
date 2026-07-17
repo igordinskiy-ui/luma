@@ -1,0 +1,136 @@
+groups:
+  - name: luma-api
+    interval: 1m
+    rules:
+      - alert: LumaApiLatencyHigh
+        expr: histogram_quantile(0.95, sum(rate(kurilka_api_request_duration_ms_bucket[5m])) by (le)) > 500
+        for: 10m
+        labels:
+          severity: warning
+          owner: product-ops
+          service: luma
+          component: api
+        annotations:
+          summary: Luma API p95 latency is above 500 ms
+          description: The five-minute API latency distribution has remained above the pilot budget for ten minutes.
+          runbook_url: docs/OBSERVABILITY_RUNBOOK.md#api-latency
+
+      - alert: LumaApiErrorRateHigh
+        expr: sum(rate(kurilka_api_requests_total{status=~"5.."}[5m])) / clamp_min(sum(rate(kurilka_api_requests_total[5m])), 0.000001) > 0.01
+        for: 10m
+        labels:
+          severity: warning
+          owner: product-ops
+          service: luma
+          component: api
+        annotations:
+          summary: Luma API 5xx rate is above 1 percent
+          description: The five-minute 5xx ratio has exceeded the pilot warning threshold for ten minutes.
+          runbook_url: docs/OBSERVABILITY_RUNBOOK.md#api-errors
+
+      - alert: LumaApiErrorRateCritical
+        expr: sum(rate(kurilka_api_requests_total{status=~"5.."}[5m])) / clamp_min(sum(rate(kurilka_api_requests_total[5m])), 0.000001) > 0.05
+        for: 5m
+        labels:
+          severity: critical
+          owner: product-ops
+          service: luma
+          component: api
+        annotations:
+          summary: Luma API 5xx rate is above 5 percent
+          description: The five-minute 5xx ratio has exceeded the critical threshold for five minutes.
+          runbook_url: docs/OBSERVABILITY_RUNBOOK.md#api-errors
+
+      - alert: LumaDatabaseUnavailable
+        expr: (kurilka_database_up == 0) or (up{job="luma-api"} == 0)
+        for: 2m
+        labels:
+          severity: critical
+          owner: product-ops
+          service: luma
+          component: database
+        annotations:
+          summary: Luma database or API metrics target is unavailable
+          description: Database readiness or the private API metrics scrape has failed for two minutes.
+          runbook_url: docs/OBSERVABILITY_RUNBOOK.md#database-and-scrape
+
+      - alert: LumaMetricsMissing
+        expr: absent(kurilka_database_up) == 1
+        for: 5m
+        labels:
+          severity: critical
+          owner: product-ops
+          service: luma
+          component: monitoring
+        annotations:
+          summary: Luma private metrics are missing
+          description: The monitoring system has not received the required database gauge for five minutes.
+          runbook_url: docs/OBSERVABILITY_RUNBOOK.md#database-and-scrape
+
+  - name: luma-worker-and-delivery
+    interval: 1m
+    rules:
+      - alert: LumaWorkerHeartbeatUnavailable
+        expr: kurilka_worker_heartbeat_age_seconds < 0 or kurilka_worker_heartbeat_age_seconds > 90
+        for: 5m
+        labels:
+          severity: critical
+          owner: product-ops
+          service: luma
+          component: worker
+        annotations:
+          summary: Luma worker heartbeat is unavailable or stale
+          description: The worker heartbeat has been missing or older than 90 seconds for five minutes.
+          runbook_url: docs/OBSERVABILITY_RUNBOOK.md#worker-and-outbox
+
+      - alert: LumaOutboxBacklogHigh
+        expr: kurilka_outbox_pending > 100
+        for: 10m
+        labels:
+          severity: warning
+          owner: product-ops
+          service: luma
+          component: outbox
+        annotations:
+          summary: Luma outbox backlog is above 100
+          description: More than 100 pending outbox records have remained queued for ten minutes.
+          runbook_url: docs/OBSERVABILITY_RUNBOOK.md#worker-and-outbox
+
+      - alert: LumaOutboxBacklogGrowing
+        expr: kurilka_outbox_pending > 100 and deriv(kurilka_outbox_pending[20m]) > 0
+        for: 20m
+        labels:
+          severity: critical
+          owner: product-ops
+          service: luma
+          component: outbox
+        annotations:
+          summary: Luma outbox backlog continues to grow
+          description: The outbox is above 100 records and has continued growing across a twenty-minute window.
+          runbook_url: docs/OBSERVABILITY_RUNBOOK.md#worker-and-outbox
+
+      - alert: LumaOutboxHasFailedRecords
+        expr: kurilka_outbox_failed > 0
+        for: 5m
+        labels:
+          severity: warning
+          owner: product-ops
+          service: luma
+          component: outbox
+        annotations:
+          summary: Luma outbox contains failed records
+          description: One or more terminal outbox failures require payload-free operational triage.
+          runbook_url: docs/OBSERVABILITY_RUNBOOK.md#worker-and-outbox
+
+      - alert: LumaDeliveryFailureRatioHigh
+        expr: kurilka_delivery_failure_ratio_24h > 0.02
+        for: 10m
+        labels:
+          severity: warning
+          owner: product-ops
+          service: luma
+          component: delivery
+        annotations:
+          summary: Luma 24-hour delivery failure ratio is above 2 percent
+          description: Terminal notification failures have exceeded the pilot go-no-go threshold for ten minutes.
+          runbook_url: docs/OBSERVABILITY_RUNBOOK.md#delivery
