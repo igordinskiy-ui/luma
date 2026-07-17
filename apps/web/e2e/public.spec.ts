@@ -29,10 +29,10 @@ test('public guides have unique metadata and no automated accessibility violatio
   }
 });
 
-test('feedback and pending legal states are explicit and accessible', async ({ page }) => {
+test('feedback login gate and pending legal states are explicit and accessible', async ({ page }) => {
   await page.goto('/feedback');
   await expect(page.getByRole('heading', { level: 1 })).toContainText('Расскажи');
-  await expect(page.getByRole('textbox', { name: 'Сообщение' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Войти через Telegram' })).toBeVisible();
   expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
 
   for (const path of ['/consent.html', '/privacy.html', '/terms.html']) {

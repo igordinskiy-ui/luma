@@ -59,3 +59,17 @@ test('expired bearer offers a fresh Telegram login and preserves the settings re
   expect(await page.evaluate(() => sessionStorage.getItem('kurilka-oidc-return'))).toBe('/settings');
   expect(await page.evaluate(() => sessionStorage.getItem('kurilka-access-token'))).toBeNull();
 });
+
+test('feedback route consumes its own OIDC callback before showing the form', async ({ page }) => {
+  await page.addInitScript(() => {
+    sessionStorage.setItem('kurilka-oidc-state', 'feedback-state-1234567890123456');
+    sessionStorage.setItem('kurilka-oidc-return', '/feedback');
+  });
+  await page.route('**/api/v1/auth/oidc/complete', route => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ access_token: 'feedback-recovered-token', token_type: 'bearer', user_id: 42 }) }));
+
+  await page.goto('/feedback#oidc_code=feedback-code-12345678901234567&state=feedback-state-1234567890123456');
+  await expect(page.getByRole('textbox', { name: 'Сообщение' })).toBeVisible();
+  expect(page.url()).not.toContain('oidc_code');
+  expect(await page.evaluate(() => sessionStorage.getItem('kurilka-access-token'))).toBe('feedback-recovered-token');
+  expect((await new AxeBuilder({ page }).include('.path-form-page').analyze()).violations).toEqual([]);
+});
