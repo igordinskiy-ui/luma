@@ -170,6 +170,8 @@
 
 - 2026-07-17 — Stages 2–4 support-depth functional + UI/UX cycle: каталог `v2-draft` расширен до 14 пользовательских контекстов, 12 пошаговых техник и 6 recovery-сценариев; техника ранжируется по выбранной ситуации, интенсивности и явным прошлым результатам, но ни один вариант не скрывается. Coping lifecycle сохраняет `outcome`, recovery-event — `relapse_context`; оба поля включены в journal/export/delete, защищены ownership/idempotency и SQLite/PostgreSQL-совместимой migration `20260717_21`. Старые `/v1` клиенты сохраняют `friends` и могут завершить технику без `outcome`: сервер безопасно выводит его из before/after intensity. UI получил guided steps, reduced-motion timer, high-intensity support, честный результат и контекстное возвращение без обнуления истории. Полный локальный API: 159/159; Vitest 21/21; production build 95.48 KB gzip; Playwright/axe/offline/error/zoom matrix 129/129 на 390/430/768/1440 и 320 px. Каталог намеренно остаётся `v2-draft`; medical/content/legal approval и production digest не заявляются.
 
+- 2026-07-17 — hosted support-depth regression: GitHub Actions run `29546297901` для revision `256f6d2` успешно завершил API 159/159 с migration `20260717_21`, web unit/build и Playwright/axe matrix 129/129, repository-security, containers/backup-restore smoke и production deploy. VPS получил новый код и схему; это не означает публикацию draft-контента или прохождение medical/content/legal review, поскольку public launch gate остаётся закрытым.
+
 ## Quality gates
 
 - Backend: unit, integration, ownership, idempotency, concurrency, rate limits,
