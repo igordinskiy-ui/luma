@@ -15,9 +15,10 @@ def test_journal_cursor_has_no_duplicates_and_filters_server_side():
     db.add(user); db.flush()
     now = datetime.utcnow()
     for index in range(15):
-        db.add(BehaviorEvent(user_id=user.id, kind="craving" if index % 2 else "smoked", trigger="coffee", intensity=3, note="", client_event_id=f"journal-event-{index:04d}", created_at=now - timedelta(minutes=index)))
+        kind = "relapse" if index == 0 else "craving" if index % 2 else "smoked"
+        db.add(BehaviorEvent(user_id=user.id, kind=kind, trigger="coffee", intensity=3, note="", relapse_context="one" if index == 0 else None, client_event_id=f"journal-event-{index:04d}", created_at=now - timedelta(minutes=index)))
     for index in range(8):
-        db.add(CopingSession(user_id=user.id, client_session_id=f"journal-coping-{index:04d}", source="dashboard", trigger="stress", intensity_before=7, intensity_after=3, technique="water", content_version="v1", status="completed", started_at=now - timedelta(minutes=index, seconds=30), updated_at=now))
+        db.add(CopingSession(user_id=user.id, client_session_id=f"journal-coping-{index:04d}", source="dashboard", trigger="stress", intensity_before=7, intensity_after=3, technique="water", outcome="helped", content_version="v1", status="completed", started_at=now - timedelta(minutes=index, seconds=30), updated_at=now))
     db.commit()
     app.dependency_overrides[current_user] = lambda: user
     try:
@@ -35,6 +36,8 @@ def test_journal_cursor_has_no_duplicates_and_filters_server_side():
             coping = client.get("/v1/journal?period=all&type=coping&trigger=stress")
             assert len(coping.json()["items"]) == 8
             assert all(item["type"] == "coping" for item in coping.json()["items"])
+            assert all(item["outcome"] == "helped" for item in coping.json()["items"])
+            assert any(item["relapse_context"] == "one" for item in first.json()["items"] if item["source"] == "event")
     finally:
         app.dependency_overrides.clear()
         db.close()

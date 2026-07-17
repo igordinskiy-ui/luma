@@ -15,13 +15,14 @@ describe('production coping flow', () => {
     const completed = vi.fn();
     render(<CopingFlow open demo initialTechniques={techniques} reason="Моя причина" onClose={() => undefined} onCompleted={completed} />);
 
-    expect(screen.getByRole('heading', { name: 'Насколько сильно тянет сейчас?' })).toHaveFocus();
-    await user.click(screen.getByRole('button', { name: /Продолжить/ }));
+    expect(screen.getByRole('heading', { name: 'Что за тяга сейчас?' })).toHaveFocus();
+    await user.click(screen.getByRole('button', { name: /Подобрать действие/ }));
     await user.click(screen.getByRole('button', { name: /Стакан воды/ }));
     await user.click(screen.getByRole('button', { name: /Начать · 3 мин/ }));
     expect(screen.getByRole('timer')).toHaveTextContent('03:00');
-    await user.click(screen.getByRole('button', { name: /Мне уже легче/ }));
-    await user.click(screen.getByRole('button', { name: /Сохранить в журнал/ }));
+    await user.click(screen.getByRole('button', { name: /Оценить тягу снова/ }));
+    await user.click(screen.getByRole('button', { name: 'Стало легче' }));
+    await user.click(screen.getByRole('button', { name: /Сохранить результат/ }));
 
     expect(completed).toHaveBeenCalledWith('Сессия сохранена в журнале.', true);
   });
@@ -34,7 +35,7 @@ describe('production coping flow', () => {
     vi.spyOn(api, 'updateCoping').mockRejectedValue(new TypeError('offline'));
     render(<CopingFlow open initialTechniques={techniques} reason="Моя причина" onClose={() => undefined} onCompleted={() => undefined} />);
 
-    await user.click(screen.getByRole('button', { name: /Продолжить/ }));
+    await user.click(screen.getByRole('button', { name: /Подобрать действие/ }));
     await user.click(screen.getByRole('button', { name: /Стакан воды/ }));
     await user.click(screen.getByRole('button', { name: /Начать · 3 мин/ }));
 

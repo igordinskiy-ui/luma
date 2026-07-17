@@ -46,10 +46,17 @@ class ConsentIn(BaseModel):
 
 class EventIn(BaseModel):
     kind: str = Field(pattern="^(smoked|craving|relapse)$")
-    trigger: Literal["stress", "coffee", "after_meal", "driving", "friends", "alcohol", "habit"] | None = None
+    trigger: Literal["stress", "anger", "boredom", "coffee", "after_meal", "driving", "work_break", "social", "friends", "alcohol", "focus", "hands", "outside", "habit", "physical"] | None = None
     intensity: int | None = Field(None, ge=1, le=5)
     note: str = Field("", max_length=1000)
     client_event_id: str = Field(min_length=8, max_length=64)
+    relapse_context: Literal["one", "day", "days", "afraid", "angry", "hopeless"] | None = None
+
+    @model_validator(mode="after")
+    def relapse_context_matches_kind(self):
+        if self.relapse_context is not None and self.kind != "relapse":
+            raise ValueError("relapse_context is only valid for relapse events")
+        return self
 
 class AuthIn(BaseModel):
     init_data: str = Field(min_length=10, max_length=16384)
@@ -59,7 +66,7 @@ class OidcCompletionIn(BaseModel):
     client_state: str = Field(pattern=r"^[A-Za-z0-9_-]{24,128}$")
 
 class EventPatchIn(BaseModel):
-    trigger: Literal["stress", "coffee", "after_meal", "driving", "friends", "alcohol", "habit"] | None = None
+    trigger: Literal["stress", "anger", "boredom", "coffee", "after_meal", "driving", "work_break", "social", "friends", "alcohol", "focus", "hands", "outside", "habit", "physical"] | None = None
     intensity: int | None = Field(None, ge=1, le=5)
     note: str | None = Field(None, max_length=1000)
 
@@ -67,17 +74,20 @@ class EventPatchIn(BaseModel):
 class CopingSessionCreateIn(BaseModel):
     client_session_id: str = Field(min_length=8, max_length=64)
     source: Literal["dashboard", "journal", "notification", "offline"] = "dashboard"
-    trigger: Literal["stress", "coffee", "after_meal", "driving", "friends", "alcohol", "habit"] | None = None
+    trigger: Literal["stress", "anger", "boredom", "coffee", "after_meal", "driving", "work_break", "social", "friends", "alcohol", "focus", "hands", "outside", "habit", "physical"] | None = None
     intensity_before: int = Field(ge=1, le=10)
 
 
 class CopingSessionPatchIn(BaseModel):
-    technique: Literal["breathing", "water", "walk"] | None = None
+    technique: Literal["breathing", "delay", "change_place", "walk", "water", "hands", "mouth", "grounding", "focus_sprint", "social_exit", "urge_surf", "support_message"] | None = None
     status: Literal["active", "paused", "completed", "abandoned"] | None = None
     intensity_after: int | None = Field(None, ge=1, le=10)
+    outcome: Literal["helped", "same", "worse"] | None = None
 
     @model_validator(mode="after")
     def completion_has_result(self):
+        # Outcome was added after intensity_after. Old /v1 clients remain
+        # valid; the endpoint derives a deterministic outcome when omitted.
         if self.status == "completed" and self.intensity_after is None:
             raise ValueError("Completed coping session requires intensity_after")
         return self
@@ -113,6 +123,7 @@ class EventOut(BaseModel):
     trigger: str | None
     intensity: int | None
     note: str
+    relapse_context: Literal["one", "day", "days", "afraid", "angry", "hopeless"] | None = None
     created_at: datetime
 
 class PushSubscriptionIn(BaseModel):

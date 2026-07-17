@@ -83,20 +83,20 @@ test('journey moves from last pack through pause, resume and recovery without lo
   await expect(page.getByText('Попытка 2')).toBeVisible();
   const relapseOpener = page.getByRole('button', { name: 'Отметить срыв без стыда' });
   await relapseOpener.click();
-  const relapseDialog = page.getByRole('dialog', { name: 'Отметить сложный момент?' });
-  await expect(relapseDialog).toContainText('лучший результат и вся история останутся');
+  const relapseDialog = page.getByRole('dialog', { name: 'Что происходит сейчас?' });
+  await expect(relapseDialog).toContainText('Лучший результат и вся история останутся');
   expect(events.filter(item => item.kind === 'relapse')).toHaveLength(0);
   expect((await new AxeBuilder({ page }).include('.path-relapse-dialog').analyze()).violations).toEqual([]);
   await relapseDialog.getByRole('button', { name: 'Вернуться без отметки' }).click();
   await expect(relapseOpener).toBeFocused();
 
   await relapseOpener.click();
-  await relapseDialog.getByRole('button', { name: 'Сохранить и восстановиться' }).click();
+  await relapseDialog.getByRole('button', { name: 'Получить план возвращения' }).click();
   await expect(page.getByRole('heading', { name: 'Путь продолжается', level: 2 })).toBeVisible();
   await expect(page.getByText('Попытка 3')).toBeVisible();
   await expect(page.getByText('Лучший период').locator('..')).toContainText('1 д.');
   expect(transitions).toEqual([{ phase: 'quit' }, { phase: 'paused' }, { phase: 'quit' }]);
   expect(events).toHaveLength(2);
-  expect(events[1]).toMatchObject({ kind: 'relapse' });
+  expect(events[1]).toMatchObject({ kind: 'relapse', relapse_context: 'one' });
   expect((await new AxeBuilder({ page }).include('.path-app-shell').analyze()).violations).toEqual([]);
 });

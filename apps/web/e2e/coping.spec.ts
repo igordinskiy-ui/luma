@@ -39,7 +39,7 @@ test('coping lifecycle survives a mid-session network loss and replays in order'
   await page.goto('/app');
   await page.getByRole('button', { name: /Мне сейчас тяжело/ }).click();
   await page.getByRole('button', { name: 'Кофе' }).click();
-  await page.getByRole('button', { name: /Продолжить/ }).click();
+  await page.getByRole('button', { name: /Подобрать действие/ }).click();
   await page.getByRole('button', { name: /Стакан воды/ }).click();
   expect(starts).toHaveLength(1);
 
@@ -47,14 +47,15 @@ test('coping lifecycle survives a mid-session network loss and replays in order'
   await context.setOffline(true);
   try {
     await page.getByRole('button', { name: /Начать · 3 мин/ }).click();
-    await expect(page.getByRole('heading', { name: 'Ты уже внутри паузы' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Сейчас — только этот шаг' })).toBeVisible();
     expect((await new AxeBuilder({ page }).include('.path-support-sheet').analyze()).violations).toEqual([]);
     await page.getByRole('button', { name: 'Пауза', exact: true }).click();
     await page.getByRole('button', { name: 'Сменить способ' }).click();
     await page.getByRole('button', { name: /Медленный выдох/ }).click();
     await page.getByRole('button', { name: /Начать · 5 мин/ }).click();
-    await page.getByRole('button', { name: /Мне уже легче/ }).click();
-    await page.getByRole('button', { name: /Сохранить в журнал/ }).click();
+    await page.getByRole('button', { name: /Оценить тягу снова/ }).click();
+    await page.getByRole('button', { name: 'Стало легче' }).click();
+    await page.getByRole('button', { name: /Сохранить результат/ }).click();
     await expect(page.getByText('Сессия сохранена на устройстве и синхронизируется позже.')).toBeVisible();
     const queued = await page.evaluate(() => localStorage.getItem('kurilka-coping-queue:42') || '');
     expect(queued).toContain('"technique":"water"');
@@ -73,7 +74,7 @@ test('coping lifecycle survives a mid-session network loss and replays in order'
     { technique: 'water' },
     { status: 'paused' },
     { technique: 'breathing' },
-    { status: 'completed', intensity_after: 3 },
+    { status: 'completed', intensity_after: 3, outcome: 'helped' },
   ]);
   expect(await page.evaluate(() => localStorage.getItem('kurilka-coping-queue:42'))).toBe('[]');
 });

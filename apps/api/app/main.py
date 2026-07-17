@@ -23,7 +23,7 @@ from .observability import RequestLogMiddleware, bounded_ratio, metrics_text, no
 from .rate_limit import enforce
 from .features import FREE_BETA_FEATURES, has_feature
 from .risk import assess
-from .content import CONTENT_DIGEST, CONTENT_VERSION, COPING_TECHNIQUES, PRE_QUIT_STEPS, RECOVERY_STEPS
+from .content import CONTENT_DIGEST, CONTENT_VERSION, COPING_TECHNIQUES, PRE_QUIT_STEPS, recovery_for
 from .notifications import can_send
 from .schemas import AuthIn, ClientTelemetryIn, ConsentIn, CopingSessionCreateIn, CopingSessionPatchIn, DashboardOut, EventIn, EventOut, EventPatchIn, FeedbackIn, FeedbackStatusIn, OidcCompletionIn, OnboardingIn, PreferencesIn, PushSubscriptionIn, QuitPlanUpdateIn
 from .bot import Bot, handle_update
@@ -117,7 +117,7 @@ def coping_session_out(item: CopingSession) -> dict:
     return {
         "id": item.id, "client_session_id": item.client_session_id, "source": item.source,
         "trigger": item.trigger, "intensity_before": item.intensity_before,
-        "intensity_after": item.intensity_after, "technique": item.technique,
+        "intensity_after": item.intensity_after, "technique": item.technique, "outcome": item.outcome,
         "content_version": item.content_version, "status": item.status,
         "started_at": item.started_at, "updated_at": item.updated_at,
         "completed_at": item.completed_at,
@@ -378,7 +378,11 @@ def dashboard(user: User = Depends(current_consented_user), db: Session = Depend
     avoided = max(0, int(seconds / 5400)) if plan.phase == "quit" else 0
     preparation_steps = PRE_QUIT_STEPS if plan.phase == "preparation" or (plan.phase == "last_pack" and plan.remaining <= 7) else []
     recovery_active = bool(plan.recovery_until and plan.recovery_until > datetime.utcnow())
-    return DashboardOut(phase=plan.phase, paused_from=plan.paused_from, remaining=plan.remaining, cigarettes_per_pack=plan.cigarettes_per_pack, pack_price=plan.pack_price, smoke_free_seconds=max(0, seconds), best_smoke_free_seconds=stats.best_seconds, attempt_number=stats.attempt_number, next_milestone_seconds=stats.next_milestone_seconds, next_milestone_label=stats.next_milestone_label, avoided_cigarettes=avoided, saved_money=round(avoided * plan.pack_price / plan.cigarettes_per_pack, 2), risk=risk, intervention=intervention, reasons=plan.reasons, recent_triggers=triggers, preparation_steps=preparation_steps, recovery_until=plan.recovery_until if recovery_active else None, recovery_steps=RECOVERY_STEPS if recovery_active else [], updated_at=plan.quit_started_at, target_quit_at=plan.target_quit_at)
+    recovery_context = None
+    if recovery_active:
+        latest_relapse = db.scalar(select(BehaviorEvent).where(BehaviorEvent.user_id == user.id, BehaviorEvent.kind.in_(["relapse", "smoked"])).order_by(BehaviorEvent.created_at.desc()).limit(1))
+        recovery_context = latest_relapse.relapse_context if latest_relapse else None
+    return DashboardOut(phase=plan.phase, paused_from=plan.paused_from, remaining=plan.remaining, cigarettes_per_pack=plan.cigarettes_per_pack, pack_price=plan.pack_price, smoke_free_seconds=max(0, seconds), best_smoke_free_seconds=stats.best_seconds, attempt_number=stats.attempt_number, next_milestone_seconds=stats.next_milestone_seconds, next_milestone_label=stats.next_milestone_label, avoided_cigarettes=avoided, saved_money=round(avoided * plan.pack_price / plan.cigarettes_per_pack, 2), risk=risk, intervention=intervention, reasons=plan.reasons, recent_triggers=triggers, preparation_steps=preparation_steps, recovery_until=plan.recovery_until if recovery_active else None, recovery_steps=recovery_for(recovery_context) if recovery_active else [], updated_at=plan.quit_started_at, target_quit_at=plan.target_quit_at)
 
 @app.post("/v1/events")
 def create_event(payload: EventIn, request: Request, user: User = Depends(current_consented_user), db: Session = Depends(get_db)):
@@ -500,8 +504,22 @@ def list_events(user: User = Depends(current_consented_user), db: Session = Depe
 
 
 @app.get("/v1/coping-techniques")
-def coping_techniques(_: User = Depends(current_consented_user)):
-    return {"content_version": CONTENT_VERSION, "content_digest": CONTENT_DIGEST, "techniques": [{"id": key, **value} for key, value in COPING_TECHNIQUES.items()]}
+def coping_techniques(user: User = Depends(current_consented_user), db: Session = Depends(get_db)):
+    history = list(db.scalars(select(CopingSession).where(
+        CopingSession.user_id == user.id,
+        CopingSession.status == "completed",
+        CopingSession.technique.is_not(None),
+    ).order_by(CopingSession.started_at.desc()).limit(100)))
+    outcomes: dict[str, list[str]] = {}
+    for session in history:
+        outcomes.setdefault(session.technique, []).append(session.outcome or ("helped" if (session.intensity_after or 10) < session.intensity_before else "same"))
+    techniques = [{
+        "id": key, **value,
+        "previously_helped": outcomes.get(key, []).count("helped"),
+        "previously_not_helped": sum(result != "helped" for result in outcomes.get(key, [])),
+    } for key, value in COPING_TECHNIQUES.items()]
+    techniques.sort(key=lambda item: (item["previously_helped"] - item["previously_not_helped"], item["previously_helped"]), reverse=True)
+    return {"content_version": CONTENT_VERSION, "content_digest": CONTENT_DIGEST, "techniques": techniques, "personalized": bool(history)}
 
 
 @app.post("/v1/coping-sessions", status_code=201)
@@ -539,6 +557,11 @@ def update_coping_session(session_id: int, payload: CopingSessionPatchIn, reques
     next_technique = changes.get("technique", item.technique)
     if next_status == "completed" and not next_technique:
         raise HTTPException(422, "Completed coping session requires a technique")
+    if next_status == "completed" and changes.get("outcome") is None and item.outcome is None:
+        intensity_after = changes.get("intensity_after", item.intensity_after)
+        if intensity_after is None:
+            raise HTTPException(422, "Completed coping session requires intensity_after")
+        changes["outcome"] = "helped" if intensity_after < item.intensity_before else "same" if intensity_after == item.intensity_before else "worse"
     for key, value in changes.items():
         setattr(item, key, value)
     if next_status in {"completed", "abandoned"}:
@@ -552,7 +575,7 @@ def update_coping_session(session_id: int, payload: CopingSessionPatchIn, reques
 def journal(
     period: str = Query("7d", pattern="^(7d|30d|all)$"),
     item_type: str = Query("all", alias="type", pattern="^(all|craving|smoked|relapse|coping)$"),
-    trigger: str | None = Query(None, pattern="^(stress|coffee|after_meal|driving|friends|alcohol|habit)$"),
+    trigger: str | None = Query(None, pattern="^(stress|anger|boredom|coffee|after_meal|driving|work_break|social|friends|alcohol|focus|hands|outside|habit|physical)$"),
     cursor: str | None = None,
     limit: int = Query(20, ge=1, le=50),
     user: User = Depends(current_consented_user),
@@ -618,10 +641,10 @@ def journal(
     for created_at, _, item_id, source, raw in selected:
         if source == "event":
             item = raw
-            items.append({"id": f"event:{item_id}", "source": source, "type": item.kind, "created_at": created_at, "trigger": item.trigger, "intensity_before": item.intensity, "intensity_after": None, "technique": None, "status": None, "note": item.note, "editable_until": created_at + timedelta(minutes=15)})
+            items.append({"id": f"event:{item_id}", "source": source, "type": item.kind, "created_at": created_at, "trigger": item.trigger, "intensity_before": item.intensity, "intensity_after": None, "technique": None, "status": None, "outcome": None, "relapse_context": item.relapse_context, "note": item.note, "editable_until": created_at + timedelta(minutes=15)})
         else:
             item = raw
-            items.append({"id": f"coping:{item_id}", "source": source, "type": "coping", "created_at": created_at, "trigger": item.trigger, "intensity_before": item.intensity_before, "intensity_after": item.intensity_after, "technique": item.technique, "status": item.status, "note": "", "editable_until": None})
+            items.append({"id": f"coping:{item_id}", "source": source, "type": "coping", "created_at": created_at, "trigger": item.trigger, "intensity_before": item.intensity_before, "intensity_after": item.intensity_after, "technique": item.technique, "status": item.status, "outcome": item.outcome, "relapse_context": None, "note": "", "editable_until": None})
 
     event_total = db.scalar(select(func.count(BehaviorEvent.id)).where(*summary_event_conditions)) if include_events else 0
     coping_total = db.scalar(select(func.count(CopingSession.id)).where(*summary_coping_conditions)) if include_coping else 0
@@ -889,7 +912,7 @@ def export(user: User = Depends(current_user), db: Session = Depends(get_db)):
         "quit_attempts": [{"started_at": item.started_at, "ended_at": item.ended_at, "end_reason": item.end_reason, "created_at": item.created_at} for item in attempts],
         "coping_sessions": [coping_session_out(item) for item in coping_sessions],
         "notification_preferences": {"enabled": preferences.enabled, "max_daily": preferences.max_daily, "quiet_start": preferences.quiet_start, "quiet_end": preferences.quiet_end} if preferences else None,
-        "events": [{"kind": e.kind, "trigger": e.trigger, "intensity": e.intensity, "note": e.note, "created_at": e.created_at} for e in events],
+        "events": [{"kind": e.kind, "trigger": e.trigger, "intensity": e.intensity, "note": e.note, "relapse_context": e.relapse_context, "created_at": e.created_at} for e in events],
         "notification_deliveries": [{"channel": d.channel, "template": d.template, "status": d.status, "attempts": d.attempts, "sent_at": d.sent_at, "created_at": d.created_at} for d in deliveries],
         "feedback": [{"category": item.category, "body": item.body, "status": item.status, "resolved_at": item.resolved_at, "created_at": item.created_at} for item in feedback],
         "analytics": [{"event_name": item.event_name, "properties": item.properties, "schema_version": item.schema_version, "created_at": item.created_at} for item in analytics],

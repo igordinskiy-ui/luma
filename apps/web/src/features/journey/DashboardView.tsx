@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { api, currentUserId, Dashboard, EventInput, eventId } from '../../api';
+import { api, currentUserId, Dashboard, EventInput, eventId, RelapseContext } from '../../api';
 import { enqueue } from '../../offline';
 import { PathDialog } from '../../ui/PathDialog';
 import { CopingFlow } from '../coping/CopingFlow';
@@ -8,9 +8,16 @@ import { JournalView } from '../journal/JournalView';
 import { SettingsView } from '../settings/SettingsView';
 
 const triggers = [
-  ['stress', 'Стресс'], ['coffee', 'Кофе'], ['after_meal', 'После еды'],
-  ['driving', 'За рулём'], ['friends', 'С друзьями'], ['alcohol', 'Алкоголь'], ['habit', 'По привычке'],
+  ['stress', 'Стресс'], ['anger', 'Злость'], ['boredom', 'Скука'], ['physical', 'Телесная тяга'],
+  ['coffee', 'Кофе'], ['after_meal', 'После еды'], ['driving', 'За рулём'], ['work_break', 'Перерыв'],
+  ['social', 'В компании'], ['alcohol', 'Алкоголь'], ['focus', 'Сосредоточиться'], ['hands', 'Занять руки'],
+  ['outside', 'На улице'], ['habit', 'По привычке'],
 ] as const;
+
+const relapseContexts: [RelapseContext, string][] = [
+  ['one', 'Одна сигарета'], ['day', 'Курил сегодня'], ['days', 'Курю несколько дней'],
+  ['afraid', 'Боюсь начинать снова'], ['angry', 'Злюсь на себя'], ['hopeless', 'Кажется, всё бессмысленно'],
+];
 
 export const formatDuration = (seconds: number) => {
   const hours = Math.floor(seconds / 3600);
@@ -54,6 +61,7 @@ export function DashboardView({ dashboard, refresh, initialScreen = 'home', upda
   const [supportOpen, setSupportOpen] = useState(false);
   const [pauseOpen, setPauseOpen] = useState(false);
   const [relapseOpen, setRelapseOpen] = useState(false);
+  const [relapseContext, setRelapseContext] = useState<RelapseContext>('one');
   const [phaseBusy, setPhaseBusy] = useState(false);
   const [relapseBusy, setRelapseBusy] = useState(false);
   const isQuit = dashboard.phase === 'quit';
@@ -62,8 +70,8 @@ export function DashboardView({ dashboard, refresh, initialScreen = 'home', upda
     navigate(next === 'home' ? '/app' : `/${next}`);
   };
 
-  const record = async (kind: EventInput['kind']) => {
-    const entry: EventInput = { kind, trigger, note, client_event_id: eventId() };
+  const record = async (kind: EventInput['kind'], relapse_context?: RelapseContext) => {
+    const entry: EventInput = { kind, trigger, note, client_event_id: eventId(), relapse_context };
     try {
       const result = await api.event(entry);
       setNotice(result.intervention);
@@ -97,7 +105,7 @@ export function DashboardView({ dashboard, refresh, initialScreen = 'home', upda
   const confirmRelapse = async () => {
     setRelapseBusy(true);
     try {
-      if (await record('relapse')) setRelapseOpen(false);
+      if (await record('relapse', relapseContext)) setRelapseOpen(false);
     } finally {
       setRelapseBusy(false);
     }
@@ -130,7 +138,7 @@ export function DashboardView({ dashboard, refresh, initialScreen = 'home', upda
     <section className="path-guidance" aria-live="polite"><span>{notice ? 'Обновление' : 'Следующий шаг'}</span><p>{notice || dashboard.intervention}</p>{dashboard.recent_triggers.length > 0 && <small>Недавно отмечалось: {dashboard.recent_triggers.map(triggerLabel).join(' · ')}</small>}</section>
     <nav className="path-bottom-nav" aria-label="Основная навигация"><button className="active" type="button" onClick={() => changeScreen('home')}><span>⌂</span>Сегодня</button><button className="support" type="button" onClick={() => setSupportOpen(true)}><span>＋</span>Поддержка</button><button type="button" onClick={() => changeScreen('journal')}><span>≡</span>Журнал</button></nav>
     <PathDialog open={pauseOpen} onClose={() => setPauseOpen(false)} labelledBy="pause-title" className="path-pause-dialog"><header><div><span className="path-kicker">Без потери истории</span><h2 id="pause-title">Поставить путь на паузу?</h2></div><button type="button" aria-label="Закрыть" onClick={() => setPauseOpen(false)}>×</button></header><p>Текущая точка, все события и лучший период сохранятся. Вернуться можно будет одним действием.</p><div className="path-form-actions"><button className="path-button ghost" type="button" onClick={() => setPauseOpen(false)}>Остаться в пути</button><button className="path-button primary" disabled={phaseBusy} type="button" onClick={() => void changePhase('paused')}>{phaseBusy ? 'Сохраняем…' : 'Поставить на паузу'}</button></div></PathDialog>
-    <PathDialog open={relapseOpen} onClose={() => setRelapseOpen(false)} labelledBy="relapse-title" className="path-relapse-dialog"><header><div><span className="path-kicker">Без наказания и обнуления опыта</span><h2 id="relapse-title">Отметить сложный момент?</h2></div><button type="button" aria-label="Закрыть" onClick={() => setRelapseOpen(false)}>×</button></header><p>Текущий период завершится, но лучший результат и вся история останутся. После сохранения откроется короткий режим восстановления.</p><div className="path-form-actions"><button className="path-button ghost" type="button" disabled={relapseBusy} onClick={() => setRelapseOpen(false)}>Вернуться без отметки</button><button className="path-button primary" disabled={relapseBusy} type="button" onClick={() => void confirmRelapse()}>{relapseBusy ? 'Сохраняем…' : 'Сохранить и восстановиться'}</button></div></PathDialog>
+    <PathDialog open={relapseOpen} onClose={() => setRelapseOpen(false)} labelledBy="relapse-title" className="path-relapse-dialog"><header><div><span className="path-kicker">Без наказания и обнуления опыта</span><h2 id="relapse-title">Что происходит сейчас?</h2></div><button type="button" aria-label="Закрыть" onClick={() => setRelapseOpen(false)}>×</button></header><p>Выбери ближайший вариант — от него зависит короткий план возвращения. Лучший результат и вся история останутся.</p><div className="path-relapse-options">{relapseContexts.map(([id, label]) => <button aria-pressed={relapseContext === id} className={relapseContext === id ? 'active' : ''} key={id} type="button" onClick={() => setRelapseContext(id)}>{label}</button>)}</div><div className="path-form-actions"><button className="path-button ghost" type="button" disabled={relapseBusy} onClick={() => setRelapseOpen(false)}>Вернуться без отметки</button><button className="path-button primary" disabled={relapseBusy} type="button" onClick={() => void confirmRelapse()}>{relapseBusy ? 'Сохраняем…' : 'Получить план возвращения'}</button></div></PathDialog>
     <CopingFlow open={supportOpen} reason={dashboard.reasons} onClose={() => setSupportOpen(false)} onCompleted={(message, synced) => { setNotice(message); if (synced) void refresh(); }} />
   </main>;
 }

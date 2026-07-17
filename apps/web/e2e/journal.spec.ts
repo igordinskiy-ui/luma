@@ -16,7 +16,7 @@ const craving = {
 
 const coping = {
   id: 'coping:7', source: 'coping', type: 'coping', created_at: '2026-07-14T09:17:00Z',
-  trigger: 'coffee', intensity_before: 7, intensity_after: 3, technique: 'water', status: 'completed', note: '',
+  trigger: 'coffee', intensity_before: 7, intensity_after: 3, technique: 'water', status: 'completed', outcome: 'helped', note: '',
 };
 
 const smoked = {

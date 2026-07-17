@@ -92,3 +92,18 @@ def test_coping_session_does_not_accept_free_text_trigger():
 def test_completed_coping_session_requires_after_intensity():
     with pytest.raises(ValidationError):
         CopingSessionPatchIn(status="completed", technique="water")
+
+
+def test_completed_coping_session_keeps_v1_outcome_backward_compatibility():
+    payload = CopingSessionPatchIn(status="completed", technique="water", intensity_after=3)
+    assert payload.outcome is None
+
+
+def test_legacy_friends_trigger_remains_accepted_in_v1():
+    assert EventIn(kind="craving", trigger="friends", intensity=3, client_event_id="legacy-friends-1").trigger == "friends"
+
+
+def test_recovery_context_is_scoped_to_relapse_events():
+    with pytest.raises(ValidationError):
+        EventIn(kind="craving", relapse_context="afraid", client_event_id="wrong-context-1")
+    assert EventIn(kind="relapse", relapse_context="afraid", client_event_id="right-context-1").relapse_context == "afraid"

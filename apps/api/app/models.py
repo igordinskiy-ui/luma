@@ -64,13 +64,14 @@ class QuitAttempt(Base):
 
 class BehaviorEvent(Base):
     __tablename__ = "behavior_events"
-    __table_args__ = (UniqueConstraint("user_id", "client_event_id", name="uq_behavior_events_user_client_event"), CheckConstraint("kind IN ('smoked','craving','relapse')", name="ck_behavior_event_kind"), CheckConstraint("intensity IS NULL OR (intensity >= 1 AND intensity <= 5)", name="ck_behavior_event_intensity"))
+    __table_args__ = (UniqueConstraint("user_id", "client_event_id", name="uq_behavior_events_user_client_event"), CheckConstraint("kind IN ('smoked','craving','relapse')", name="ck_behavior_event_kind"), CheckConstraint("intensity IS NULL OR (intensity >= 1 AND intensity <= 5)", name="ck_behavior_event_intensity"), CheckConstraint("relapse_context IS NULL OR (kind = 'relapse' AND relapse_context IN ('one','day','days','afraid','angry','hopeless'))", name="ck_behavior_event_relapse_context"))
     id: Mapped[int] = mapped_column(primary_key=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
     kind: Mapped[str] = mapped_column(String(24), index=True)
     trigger: Mapped[str] = mapped_column(String(64), nullable=True)
     intensity: Mapped[int] = mapped_column(Integer, nullable=True)
     note: Mapped[str] = mapped_column(Text, default="")
+    relapse_context: Mapped[str] = mapped_column(String(24), nullable=True)
     client_event_id: Mapped[str] = mapped_column(String(64), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
@@ -83,6 +84,7 @@ class CopingSession(Base):
         CheckConstraint("status IN ('active','paused','completed','abandoned')", name="ck_coping_session_status"),
         CheckConstraint("intensity_before >= 1 AND intensity_before <= 10", name="ck_coping_session_intensity_before"),
         CheckConstraint("intensity_after IS NULL OR (intensity_after >= 1 AND intensity_after <= 10)", name="ck_coping_session_intensity_after"),
+        CheckConstraint("outcome IS NULL OR outcome IN ('helped','same','worse')", name="ck_coping_session_outcome"),
     )
     id: Mapped[int] = mapped_column(primary_key=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
@@ -92,6 +94,7 @@ class CopingSession(Base):
     intensity_before: Mapped[int] = mapped_column(Integer)
     intensity_after: Mapped[int] = mapped_column(Integer, nullable=True)
     technique: Mapped[str] = mapped_column(String(32), nullable=True)
+    outcome: Mapped[str] = mapped_column(String(16), nullable=True)
     content_version: Mapped[str] = mapped_column(String(32))
     status: Mapped[str] = mapped_column(String(24), default="active")
     started_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())

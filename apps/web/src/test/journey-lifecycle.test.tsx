@@ -58,14 +58,14 @@ describe('journey phase UI contracts', () => {
     const opener = screen.getByRole('button', { name: 'Отметить срыв без стыда' });
 
     await userEvent.click(opener);
-    const dialog = screen.getByRole('dialog', { name: 'Отметить сложный момент?' });
+    const dialog = screen.getByRole('dialog', { name: 'Что происходит сейчас?' });
     expect(dialog).toHaveTextContent(/лучший результат и вся история останутся/i);
     await userEvent.click(screen.getByRole('button', { name: 'Вернуться без отметки' }));
     expect(record).not.toHaveBeenCalled();
     expect(opener).toHaveFocus();
 
     await userEvent.click(opener);
-    await userEvent.click(screen.getByRole('button', { name: 'Сохранить и восстановиться' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Получить план возвращения' }));
     await waitFor(() => expect(record).toHaveBeenCalledWith(expect.objectContaining({ kind: 'relapse' })));
   });
 });

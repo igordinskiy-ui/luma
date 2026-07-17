@@ -20,7 +20,7 @@ def test_export_delete_and_fresh_onboarding_after_return():
     db.add(ConsentRecord(user_id=other.id, document_version="other", document_digest="b" * 64, source="legacy", age_confirmed=True, accepted_at=datetime.utcnow()))
     db.add(QuitPlan(user_id=user.id, phase="quit", remaining=0, cigarettes_per_pack=20, quit_started_at=datetime.utcnow()))
     db.add(QuitAttempt(user_id=user.id, started_at=datetime.utcnow()))
-    db.add(BehaviorEvent(user_id=user.id, kind="craving", trigger="coffee", intensity=5, note="", client_event_id="privacy-event-0001"))
+    db.add(BehaviorEvent(user_id=user.id, kind="relapse", trigger="coffee", intensity=5, note="", relapse_context="afraid", client_event_id="privacy-event-0001"))
     db.add(CopingSession(user_id=user.id, client_session_id="privacy-coping-0001", source="dashboard", trigger="coffee", intensity_before=5, technique="water", content_version="v1", status="active"))
     db.add(PushSubscription(user_id=user.id, endpoint="https://fcm.googleapis.com/privacy-test", p256dh="p256dh-key", auth="auth-key"))
     db.commit()
@@ -42,6 +42,7 @@ def test_export_delete_and_fresh_onboarding_after_return():
             assert payload["quit_plan"]["cigarettes_per_pack"] == 20
             assert len(payload["quit_attempts"]) == 1
             assert len(payload["coping_sessions"]) == 1
+            assert payload["events"][0]["relapse_context"] == "afraid"
             assert len(payload["push_subscriptions"]) == 1
 
             assert client.delete("/v1/account").status_code == 204

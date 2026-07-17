@@ -27,21 +27,38 @@ def test_coping_session_is_idempotent_owned_and_exported():
 
             selected = client.patch(f"/v1/coping-sessions/{session_id}", json={"technique": "water"})
             assert selected.status_code == 200
-            completed = client.patch(f"/v1/coping-sessions/{session_id}", json={"status": "completed", "intensity_after": 3})
+            completed = client.patch(f"/v1/coping-sessions/{session_id}", json={"status": "completed", "intensity_after": 3, "outcome": "helped"})
             assert completed.status_code == 200
             assert completed.json()["status"] == "completed"
-            duplicate = client.patch(f"/v1/coping-sessions/{session_id}", json={"status": "completed", "intensity_after": 3})
+            assert completed.json()["outcome"] == "helped"
+            duplicate = client.patch(f"/v1/coping-sessions/{session_id}", json={"status": "completed", "intensity_after": 3, "outcome": "helped"})
             assert duplicate.status_code == 200
             assert duplicate.json()["status"] == "completed"
             assert client.patch(f"/v1/coping-sessions/{session_id}", json={"status": "active"}).status_code == 409
+
+            legacy = client.post("/v1/coping-sessions", json={**payload, "client_session_id": "coping-session-legacy"})
+            legacy_id = legacy.json()["id"]
+            assert client.patch(f"/v1/coping-sessions/{legacy_id}", json={"technique": "water"}).status_code == 200
+            legacy_completed = client.patch(f"/v1/coping-sessions/{legacy_id}", json={"status": "completed", "intensity_after": 7})
+            assert legacy_completed.status_code == 200
+            assert legacy_completed.json()["outcome"] == "same"
+
+            db.add_all([
+                CopingSession(user_id=user.id, client_session_id=f"coping-not-helped-{index}", source="dashboard", trigger="stress", intensity_before=7, intensity_after=7, technique="walk", outcome="same", content_version="v2-draft", status="completed")
+                for index in range(2)
+            ])
+            db.commit()
+            catalogue = client.get("/v1/coping-techniques")
+            walk = next(item for item in catalogue.json()["techniques"] if item["id"] == "walk")
+            assert walk["previously_not_helped"] == 2
 
             app.dependency_overrides[current_user] = lambda: other
             assert client.patch(f"/v1/coping-sessions/{session_id}", json={"status": "paused"}).status_code == 404
             app.dependency_overrides[current_user] = lambda: user
             exported = client.get("/v1/privacy-export")
-            assert any(item["client_session_id"] == payload["client_session_id"] for item in exported.json()["coping_sessions"])
+            assert any(item["client_session_id"] == payload["client_session_id"] and item["outcome"] == "helped" for item in exported.json()["coping_sessions"])
 
-        assert len(list(db.scalars(select(CopingSession).where(CopingSession.user_id == user.id)))) == 1
+        assert len(list(db.scalars(select(CopingSession).where(CopingSession.user_id == user.id)))) == 4
         analytics = list(db.scalars(select(AnalyticsEvent).where(AnalyticsEvent.user_id == user.id).order_by(AnalyticsEvent.id)))
         assert analytics == []
         assert all("client_session_id" not in item.properties and "note" not in item.properties for item in analytics)
