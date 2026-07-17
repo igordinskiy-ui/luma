@@ -162,6 +162,8 @@
 
 - 2026-07-17 — Stage 8 alert-as-code + operational UI/UX: добавлены 10 Prometheus rules для API p95/error rate, database/scrape, worker heartbeat, outbox и delivery ratio с owner/severity/runbook labels без динамических пользовательских значений. API теперь экспортирует terminal/failed counts и bounded failure ratio за реальные 24 часа вместо использования retention-wide failed gauge как процента. Immutable Prometheus `3.12.0` (`sha256:69f524…`) выполнил `promtool check rules` и synthetic `test rules` с проверкой warning/critical `for`-окон; focused API/static срез 16/16 и pin checker зелёные. UI/UX regression production preview для 401/429/5xx/offline/slow/staff safe-metrics прошла Playwright/axe 36/36 на 390/430/768/1440. Фактическая загрузка правил production scraper, Alertmanager receiver и end-to-end delivery test не заявляются и остаются внешним гейтом.
 
+- 2026-07-17 — hosted alert-contract regression: GitHub Actions run `29544025067` успешно завершил API, полный web E2E, containers, repository-security с новым pinned `promtool check/test rules` и VPS deploy revision `0434c99`. Это доказывает repository rule contract и доставку API-метрик на сервер, но не наличие production Prometheus/Alertmanager или получение сообщения incident channel.
+
 ## Quality gates
 
 - Backend: unit, integration, ownership, idempotency, concurrency, rate limits,
