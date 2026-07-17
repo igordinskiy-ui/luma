@@ -82,6 +82,7 @@ test('notification opt-in saves limits before exposing a quiet-hours test result
   await page.unroute('**/api/v1/notification-status');
   await page.route('**/api/v1/notification-preferences', async route => {
     if (route.request().method() === 'PUT') saved = await route.request().postDataJSON();
+    else await new Promise(resolve => setTimeout(resolve, 150));
     const payload = saved || { enabled: false, max_daily: 3, quiet_start: 22, quiet_end: 9 };
     return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(payload) });
   });
@@ -90,6 +91,8 @@ test('notification opt-in saves limits before exposing a quiet-hours test result
 
   await page.goto('/settings');
   const notificationOptIn = page.getByRole('checkbox', { name: 'Разрешить поддерживающие сообщения' });
+  await expect(notificationOptIn).toBeDisabled();
+  await expect(notificationOptIn).toBeEnabled();
   await page.locator('label.path-switch').click();
   await expect(notificationOptIn).toBeChecked();
   await page.getByLabel('Максимум сообщений в день').selectOption('2');

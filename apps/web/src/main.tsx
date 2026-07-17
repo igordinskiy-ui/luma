@@ -28,6 +28,7 @@ import './path-screens.css';
 import './features/journey/journey.css';
 import './features/app/auth.css';
 import './features/onboarding/onboarding.css';
+import './features/settings/settings.css';
 
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js'));

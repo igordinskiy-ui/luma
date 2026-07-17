@@ -2,13 +2,24 @@ import { defineConfig, devices } from '@playwright/test';
 
 export default defineConfig({
   testDir: './e2e',
+  snapshotPathTemplate: '{testDir}/__screenshots__/{testFilePath}/{arg}-{projectName}{ext}',
   fullyParallel: true,
+  workers: 4,
   retries: process.env.CI ? 2 : 0,
   reporter: process.env.CI ? 'github' : 'list',
   use: {
     baseURL: process.env.E2E_BASE_URL || 'http://127.0.0.1:41792',
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
+  },
+  expect: {
+    toHaveScreenshot: {
+      animations: 'disabled',
+      caret: 'hide',
+      scale: 'css',
+      threshold: 0.3,
+      maxDiffPixelRatio: 0.03,
+    },
   },
   projects: [
     { name: 'mobile-390', grepInvert: /@zoom/, use: { ...devices['Pixel 7'], viewport: { width: 390, height: 844 } } },
