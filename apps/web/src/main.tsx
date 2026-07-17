@@ -1,5 +1,8 @@
 import { createRoot } from 'react-dom/client';
 import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom';
+import '@fontsource-variable/lora/wght.css';
+import '@fontsource-variable/lora/wght-italic.css';
+import '@fontsource-variable/manrope/wght.css';
 import { App } from './features/app/App';
 import { CopingFlow } from './features/coping/CopingFlow';
 import { PathShowcase } from './features/design/PathShowcase';
@@ -29,6 +32,7 @@ import './features/journey/journey.css';
 import './features/app/auth.css';
 import './features/onboarding/onboarding.css';
 import './features/settings/settings.css';
+import './fonts.css';
 
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js'));

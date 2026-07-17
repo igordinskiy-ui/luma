@@ -1,0 +1,14 @@
+:root {
+  --path-font-sans: 'Manrope Variable', system-ui, sans-serif;
+  --path-font-serif: 'Lora Variable', Georgia, serif;
+}
+
+.path-page,
+.path-app-shell {
+  font-family: var(--path-font-sans);
+}
+
+.path-page :is(h1, h2, h3, blockquote, .path-door span, .path-landing-visual > p, .path-logo-large, .path-logo-small, .path-wordmark > span, .path-live-card > div:first-child b, .path-main-actions i, .path-recovery-card header > strong, .path-guidance > p, .path-journal-real-summary b, .path-event-group article > i, .path-coping-timer b, .path-staff-page .metrics b, .path-start-modes button > b, .path-start-modes button > span, .path-review p, .path-preview-metric b),
+.path-app-shell :is(h1, h2, h3, blockquote, .path-logo-large, .path-logo-small, .path-wordmark > span, .path-live-card > div:first-child b, .path-main-actions i, .path-recovery-card header > strong, .path-guidance > p, .path-journal-real-summary b, .path-event-group article > i, .path-coping-timer b, .path-staff-page .metrics b, .path-start-modes button > b, .path-start-modes button > span, .path-review p, .path-preview-metric b) {
+  font-family: var(--path-font-serif);
+}
