@@ -166,6 +166,8 @@
 
 - 2026-07-17 — Stage 10 load/smoke release contract: существующий k6-сценарий закреплён ровно за 50 уникальными синтетическими аккаунтами и двумя минутами read/write нагрузки. Он fail-closed проверяет credential-free HTTPS origin, требует отдельное owner confirmation перед production-нагрузкой, контролирует dashboard p95 <500 ms, event-write p95 <700 ms, error rate <1% и 100% response checks. После каждого запуска создаётся `load-smoke-evidence.json` со workload, origin, порогами и наблюдениями без bearer-токенов и response payload. Production smoke теперь также отклоняет credentials/path/query/fragment в origin. Локально подтверждены JS syntax, 29/29 focused tooling/deploy tests и compileall; фактический staging/production capacity run не заявляется до выдачи 50 тестовых аккаунтов и выполнения владельцем из защищённого runner.
 
+- 2026-07-17 — hosted Stage 10 load/smoke contract regression: GitHub Actions run `29545026351` для revision `7c0fd71` успешно завершил API, web (включая новый `node --check` k6-сценария и полный browser matrix), repository-security, containers/backup-restore smoke и production deploy. Это доказывает поставку исполняемого контракта и отсутствие регрессий, но не заменяет отдельный staging/production capacity run с 50 синтетическими аккаунтами и архивированным `load-smoke-evidence.json`.
+
 ## Quality gates
 
 - Backend: unit, integration, ownership, idempotency, concurrency, rate limits,
