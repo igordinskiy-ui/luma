@@ -4,6 +4,15 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 from .models import NotificationDelivery, NotificationPreference, User
 
+
+def lock_delivery_barrier(db: Session, user_id: int) -> None:
+    """Serialize opt-out/erasure with a provider attempt held in this transaction."""
+    db.scalar(
+        select(NotificationPreference)
+        .where(NotificationPreference.user_id == user_id)
+        .with_for_update()
+    )
+
 def can_send(db: Session, user: User, *, lock_preference: bool = False) -> bool:
     preference_query = select(NotificationPreference).where(NotificationPreference.user_id == user.id)
     if lock_preference:

@@ -26,7 +26,7 @@ from .rate_limit import enforce
 from .features import FREE_BETA_FEATURES, has_feature
 from .risk import assess
 from .content import CONTENT_DIGEST, CONTENT_VERSION, COPING_TECHNIQUES, PRE_QUIT_STEPS, recovery_for
-from .notifications import can_send
+from .notifications import can_send, lock_delivery_barrier
 from .schemas import AuthIn, ClientTelemetryIn, ConsentIn, CopingSessionCreateIn, CopingSessionPatchIn, DashboardOut, EventIn, EventOut, EventPatchIn, FeedbackIn, FeedbackStatusIn, OidcCompletionIn, OnboardingIn, PreferencesIn, PushSubscriptionIn, QuitPlanUpdateIn
 from .bot import Bot, handle_update
 
@@ -733,6 +733,9 @@ def save_push_subscription(payload: PushSubscriptionIn, request: Request, user: 
 @app.delete("/v1/push-subscription", status_code=204)
 def delete_push_subscription(request: Request, user: User = Depends(current_user), db: Session = Depends(get_db)):
     enforce(request, "push-subscription-delete", 20, subject=user.id)
+    # The worker holds this same row lock through its provider attempt. Once
+    # this endpoint returns, no earlier web-push attempt can still be running.
+    lock_delivery_barrier(db, user.id)
     for subscription in db.scalars(select(PushSubscription).where(PushSubscription.user_id == user.id)):
         db.delete(subscription)
     db.commit()
@@ -930,6 +933,10 @@ def export(user: User = Depends(current_user), db: Session = Depends(get_db)):
 @app.delete("/v1/account", status_code=204)
 def delete_account(request: Request, user: User = Depends(current_user), db: Session = Depends(get_db)):
     enforce(request, "account-delete", 3, subject=user.id)
+    # Wait for an already-started notification, or make a waiting worker see
+    # the deleted preference/subscriptions. This is the erasure completion
+    # barrier: no provider attempt may finish after the 204 response.
+    lock_delivery_barrier(db, user.id)
     for model in (BehaviorEvent, ConsentRecord, CopingSession, NotificationDelivery, PushSubscription, OutboxEvent, QuitAttempt, QuitPlan, NotificationPreference, AnalyticsEvent, Entitlement, Feedback):
         for row in db.scalars(select(model).where(model.user_id == user.id)): db.delete(row)
     # Authentication may supply an ORM instance loaded by another session

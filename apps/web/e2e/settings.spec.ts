@@ -53,6 +53,16 @@ test('settings exports data and revokes the device session on logout', async ({ 
 test('account deletion requires typed confirmation and a returning user sees onboarding', async ({ page }) => {
   const state = { deleted: false, logoutCalls: 0, pushDeletes: 0 };
   await mockSettingsApi(page, state);
+  await page.unroute('**/api/v1/account');
+  let releaseDelete!: () => void;
+  const deleteGate = new Promise<void>(resolve => { releaseDelete = resolve; });
+  let deleteCalls = 0;
+  await page.route('**/api/v1/account', async route => {
+    deleteCalls += 1;
+    await deleteGate;
+    state.deleted = true;
+    await route.fulfill({ status: 204 });
+  });
   await page.goto('/settings');
   await page.getByRole('button', { name: 'Удалить аккаунт', exact: true }).click();
   const dialog = page.getByRole('dialog', { name: 'Удалить весь путь?' });
@@ -61,6 +71,11 @@ test('account deletion requires typed confirmation and a returning user sees onb
   expect((await new AxeBuilder({ page }).include('.path-support-sheet').analyze()).violations).toEqual([]);
   await dialog.getByLabel('Подтверждение').fill('УДАЛИТЬ');
   await dialog.getByRole('button', { name: 'Удалить аккаунт безвозвратно' }).click();
+  await expect(dialog.getByRole('button', { name: 'Удаляем аккаунт…' })).toBeDisabled();
+  await expect(dialog.getByRole('button', { name: 'Закрыть' })).toBeDisabled();
+  await expect(dialog.getByLabel('Подтверждение')).toBeDisabled();
+  expect(deleteCalls).toBe(1);
+  releaseDelete();
   await expect(page).toHaveURL(/\/$/);
   expect(state.deleted).toBe(true);
   expect(await page.evaluate(() => sessionStorage.getItem('kurilka-client-session-id'))).toBeNull();
