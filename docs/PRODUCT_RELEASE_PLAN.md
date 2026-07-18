@@ -21,16 +21,17 @@
 
 ## Текущий baseline
 
-Обновлено: 2026-07-15.
+Обновлено: 2026-07-18.
 
 | Область | Состояние | Доказательство / следующий шаг |
 | --- | --- | --- |
-| Web production build | completed | `npm run build`; 97.18 kB gzip JS по Vite (94.09 KiB проверяемого budget script), ниже обязательного лимита 150 KB |
-| Web unit/a11y baseline | completed | Vitest: 21 passed; Playwright + axe/PWA/web-vitals/privacy/coping/journey/journal/notifications/staff/error/reflow states: 129 passed на 390/430/768/1440 и отдельном 320 px zoom-equivalent production preview |
-| API unit baseline | completed | полный локальный regression на чистой мигрированной БД: 108 passed без skip; migration head `20260715_20`, ownership, notification, retention, journey, immutable image pins и error-contract сценарии успешны |
+| Web production build | completed | `npm run build`; 96.42 KB gzip JS по budget script, ниже обязательного лимита 150 KB; pinned Cyrillic fonts и pixel baselines стабильны на Windows/Linux |
+| Web unit/a11y baseline | completed | Vitest: 23 passed; Playwright + axe/PWA/web-vitals/privacy/coping/journey/journal/notifications/staff/error/reflow/visual states: 157 passed на 390/430/768/1440 и отдельном 320 px zoom-equivalent production preview |
+| API unit baseline | completed | полный regression: 169 passed без skip; migration head `20260717_21`, ownership, OIDC, notification, retention, journey, privacy, runtime/preflight и error-contract сценарии успешны |
 | Основной стиль | completed | «Путь» зафиксирован в ADR-002 и применён к пользовательским экранам |
 | Browser prototype QA | completed | dev-only каталог `/dev/designs`, production coping-flow и пять фаз dashboard доступны раздельно; каталог не попадает в production bundle |
-| Production credentials / domain | external-blocked | Требуются значения владельца и secret manager |
+| Production preview pipeline | completed | Hosted deploy jobs применяют revision, миграции и health checks на VPS; public user gate остаётся закрытым |
+| Public launch credentials | external-blocked | Нужны owner-verified Telegram OIDC/bot/VAPID, alert receiver и соответствующие secret-manager значения; репозиторий их не содержит и не подделывает |
 | Legal / medical approval | external-blocked | Нужны реальные подписанные review; production gates остаются закрыты |
 | Device UAT / pilot | external-blocked | Выполняются только на deployed host и реальных устройствах/когорте |
 
@@ -39,14 +40,14 @@
 | Этап | Статус | Exit gate |
 | --- | --- | --- |
 | 0. Baseline и инженерный фундамент | completed | `main.tsx` сокращён до 66 строк маршрутизации; app/journey/settings/feedback/staff/design вынесены в feature-модули, dev-каталог исключён из production bundle, стабильные маршруты, pixel visual regression и полный test harness без skip подтверждены |
-| 1. Вход, 18+, consent, onboarding | in_progress | три режима старта, 18+, безопасный локальный черновик, отдельный re-consent без мутации плана, неизменяемая история `version + legal digest`, одноразовый OIDC exchange с retry/return-path recovery и production client E2E реализованы; остаётся deployed Telegram/OIDC UAT и подписанный legal UAT |
-| 2. Жизненный цикл пути | in_progress | `QuitAttempt`, `paused_from`, row-locked transitions, лучший период, ручной старт quit, pause/resume, recovery и полноценная 15-минутная отмена ошибочной отметки с откатом счётчика/периода реализованы; production client lifecycle/axe закрыт, полный API integration/concurrency gate выполняется в Python 3.12 CI |
-| 3. Production coping-flow | in_progress | модель/API, versioned content, 4 шага, pause/change/complete, mid-session network loss, строго последовательный user-bound replay и single-flight reconnect реализованы и закрыты production E2E/axe; полный API integration gate зелёный, остаются медицинский review контента и deployed device UAT |
-| 4. Журнал | in_progress | cursor pagination без дублей, timeline, server filters, truthful summary, retry/empty, редактирование и подтверждаемое удаление ошибочной отметки в 15-минутном окне закрыты production E2E/axe; полный API integration gate зелёный, остаётся deployed UAT на реальном объёме данных |
-| 5. Уведомления и offline-first | in_progress | explicit opt-in, quiet hours/limit, browser subscribe/unsubscribe, test, expired/cross-account push cleanup, delivery fallback/retry coverage, idempotency и build-time precache реализованы; worker integration gate зелёный, реальная доставка требует Telegram/VAPID credentials и device UAT |
-| 6. Settings, privacy, support, staff | in_progress | причины, дата подготовки, размер/цена пачки, полный export включая consent history, server-side revoke logout, device cleanup, double-confirm deletion, returning-user onboarding и staff triage реализованы; ownership/erasure integration-контракты добавлены, deployed auth lifecycle остаётся внешним |
-| 7. Аналитика и marketing readiness | in_progress | allowlisted source, период, funnel/first action и 3 SEO routes готовы; публикация/расходы external-blocked |
-| 8. Security, reliability, observability | in_progress | полный error contract, structured logs, internal metrics, executable alert rules, retention, OIDC/egress policy, pinned dependencies/images/Actions, resource limits и web bundle/vitals budgets готовы; production images имеют 0 Critical/High, hosted dependency/repository/container gates зелёные, non-root/read-only web smoke возвращает HTTP 200; fail-closed backup/restore и Prometheus rule tooling закрыты synthetic drills, production alert delivery/dated restore evidence остаются внешними гейтами |
+| 1. Вход, 18+, consent, onboarding | external-blocked | repository-часть завершена: три режима старта, 18+, безопасный локальный черновик, immutable consent history, re-consent, PKCE/OIDC retry/return-path и обязательный public-PWA gate закрыты тестами; требуются deployed Telegram/OIDC device UAT и подписанный legal UAT |
+| 2. Жизненный цикл пути | completed | `QuitAttempt`, `paused_from`, row-locked transitions, лучший/текущий период, preparation → last pack → quit, pause/resume, recovery и 15-минутная отмена с откатом счётчика/периода закрыты API concurrency/integration и production browser/axe regression |
+| 3. Production coping-flow | external-blocked | repository-часть завершена: versioned model/API/content, 4 шага, pause/change/complete, sequential user-bound offline replay, single-flight reconnect и production E2E/axe зелёные; требуются medical/content review и deployed device UAT |
+| 4. Журнал | completed | cursor pagination без дублей, timeline, server filters, truthful summary, empty/small/multi-page data, retry/error, доступные текстовые выводы, timezone и 15-минутное исправление/удаление закрыты integration и production browser/axe regression |
+| 5. Уведомления и offline-first | external-blocked | repository-часть завершена: explicit opt-in, quiet hours/limit, subscribe/unsubscribe/test, expired/cross-account cleanup, fallback/retry, idempotency и offline precache; реальная Telegram/web-push доставка требует credentials и device UAT |
+| 6. Settings, privacy, support, staff | external-blocked | repository-часть завершена: план/причины, export всех owned models, server revoke logout, device cleanup, double-confirm deletion, returning-user onboarding и staff triage; deployed auth/export/delete lifecycle требует owner/device UAT |
+| 7. Аналитика и marketing readiness | external-blocked | safe allowlisted attribution, period/funnel/first-action/D1/D7/D14, staff filters, production landing, 3 SEO routes, deep-link kit, 12 creatives, FAQ и experiment scorecard готовы; публикация и расходы требуют подтверждения владельца |
+| 8. Security, reliability, observability | external-blocked | error contract, structured logs/metrics, alert rules, retention, OIDC/egress policy, UTC clock, lifespan, pinned dependencies/images, resource limits, bundle/vitals budgets, 0 Critical/High hosted scans и synthetic backup/restore закрыты; нужны production alert receipt и датированный изолированный restore drill |
 | 9. Content, legal, accessibility, UAT | external-blocked | локальные axe/focus/reduced-motion/320 px reflow гейты закрыты; holding legal pages блокируют preflight, нужны подписанные legal/medical review и реальные Android/iOS Telegram UAT |
 | 10. Production, pilot, public beta | external-blocked | smoke/load/pilot runbooks готовы; нужны credentials, deploy authority, 4 недели пилота, go/no-go и 7 дней стабилизации |
 
@@ -194,6 +195,8 @@
 - 2026-07-18 — hosted public PWA login gate: GitHub Actions run `29661405582` для revision `348c966` полностью успешен — API, web с 157 browser tests, repository-security, containers/image/backup smoke и `deploy-production` завершились зелёными. Закрытый preview продолжил развёртываться, а будущий public launch теперь fail-closed требует полноценный OIDC PWA-вход.
 
 - 2026-07-18 — Stage 1/10 runtime OIDC defense-in-depth: тот же обязательный public-PWA инвариант добавлен в `validate_security_settings()` lifespan, поэтому приложение откажется принимать production traffic с пустым OIDC даже при ручном обходе release preflight. Valid production fixture теперь содержит same-origin callback; отдельные тесты подтверждают public rejection и допустимость полностью отключённого OIDC в закрытом preview. Полный backend regression 169/169 без skip; web-код не менялся после зелёных 157/157. Hosted evidence ожидается после follow-up-коммита.
+
+- 2026-07-18 — hosted runtime OIDC defense-in-depth: GitHub Actions run `29661609721` для revision `9a225c2` полностью успешен — API, web, repository-security, containers/image/backup smoke и `deploy-production` завершились зелёными. И release preflight, и production lifespan теперь независимо блокируют публичный запуск без рабочего PWA OIDC; закрытый preview развёрнут без открытия пользовательского доступа.
 
 ## Quality gates
 
