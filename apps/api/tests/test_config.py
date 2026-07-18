@@ -14,6 +14,9 @@ def set_valid_production(monkeypatch):
     monkeypatch.setattr(settings, "redis_url", "redis://:" + "x" * 32 + "@redis:6379/0")
     monkeypatch.setattr(settings, "cors_origins", "https://app.example.test")
     monkeypatch.setattr(settings, "telegram_webapp_url", "https://app.example.test")
+    monkeypatch.setattr(settings, "telegram_oidc_client_id", "production-pwa-client")
+    monkeypatch.setattr(settings, "telegram_oidc_client_secret", "production-pwa-secret")
+    monkeypatch.setattr(settings, "telegram_oidc_redirect_uri", "https://app.example.test/api/v1/auth/oidc/callback")
     monkeypatch.setattr(settings, "content_review_status", "approved")
     monkeypatch.setattr(settings, "content_approved_digest", CONTENT_DIGEST)
     monkeypatch.setattr(settings, "content_catalogue_digest", CONTENT_DIGEST)
@@ -96,7 +99,19 @@ def test_closed_production_preview_does_not_fake_public_approvals(monkeypatch):
     monkeypatch.setattr(settings, "legal_documents_status", "template")
     monkeypatch.setattr(settings, "legal_documents_version", "")
     monkeypatch.setattr(settings, "legal_documents_digest", "")
+    monkeypatch.setattr(settings, "telegram_oidc_client_id", "")
+    monkeypatch.setattr(settings, "telegram_oidc_client_secret", "")
+    monkeypatch.setattr(settings, "telegram_oidc_redirect_uri", "")
     validate_security_settings()
+
+
+def test_public_runtime_requires_oidc_for_the_pwa_login_path(monkeypatch):
+    set_valid_production(monkeypatch)
+    monkeypatch.setattr(settings, "telegram_oidc_client_id", "")
+    monkeypatch.setattr(settings, "telegram_oidc_client_secret", "")
+    monkeypatch.setattr(settings, "telegram_oidc_redirect_uri", "")
+    with pytest.raises(RuntimeError, match="required before public PWA launch"):
+        validate_security_settings()
 
 
 def test_production_binds_approval_to_exact_content_catalogue(monkeypatch):

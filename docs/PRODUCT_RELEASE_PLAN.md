@@ -191,6 +191,10 @@
 
 - 2026-07-18 — Stage 1/10 public PWA login gate + UI/UX: production preflight теперь требует полный Telegram OIDC client/secret/callback при `PUBLIC_LAUNCH_ENABLED=true`, поэтому релиз не может пройти с рабочим Mini App и сломанным PWA-входом; закрытый preview по-прежнему допускает отсутствие OIDC, но отклоняет частичную конфигурацию. Лендинг не показывает активный login CTA, пока launch-status не подтверждён; при сбое отображает спокойное объяснение и retry без перезагрузки, после успеха открывает единственное действие «Войти через Telegram». Полный локальный proof: backend 168/168 без skip, Vitest 23/23, build 96.42 KB gzip JS, Playwright/axe/offline/vitals/visual/zoom 157/157 на 390/430/768/1440 и 320 px equivalent. Hosted evidence ожидается после отправки коммита; реальные OIDC credentials и authorization-screen не подменяются.
 
+- 2026-07-18 — hosted public PWA login gate: GitHub Actions run `29661405582` для revision `348c966` полностью успешен — API, web с 157 browser tests, repository-security, containers/image/backup smoke и `deploy-production` завершились зелёными. Закрытый preview продолжил развёртываться, а будущий public launch теперь fail-closed требует полноценный OIDC PWA-вход.
+
+- 2026-07-18 — Stage 1/10 runtime OIDC defense-in-depth: тот же обязательный public-PWA инвариант добавлен в `validate_security_settings()` lifespan, поэтому приложение откажется принимать production traffic с пустым OIDC даже при ручном обходе release preflight. Valid production fixture теперь содержит same-origin callback; отдельные тесты подтверждают public rejection и допустимость полностью отключённого OIDC в закрытом preview. Полный backend regression 169/169 без skip; web-код не менялся после зелёных 157/157. Hosted evidence ожидается после follow-up-коммита.
+
 ## Quality gates
 
 - Backend: unit, integration, ownership, idempotency, concurrency, rate limits,

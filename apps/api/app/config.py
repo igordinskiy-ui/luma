@@ -109,6 +109,8 @@ def validate_security_settings() -> None:
         raise RuntimeError("RISK_ENGINE_VERSION must be baseline (rules_v1 is accepted only for a closed preview migration)")
     if not settings.public_launch_enabled:
         return
+    if not all(oidc_values):
+        raise RuntimeError("TELEGRAM_OIDC_CLIENT_ID, TELEGRAM_OIDC_CLIENT_SECRET and TELEGRAM_OIDC_REDIRECT_URI are required before public PWA launch")
     if settings.risk_engine_version != "baseline":
         raise RuntimeError("RISK_ENGINE_VERSION must be baseline before public launch; user health/risk scoring is prohibited")
     if len(settings.telegram_webhook_secret) < 24: raise RuntimeError("TELEGRAM_WEBHOOK_SECRET must contain at least 24 characters")
