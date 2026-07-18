@@ -16,7 +16,7 @@ function clientSessionId() {
   return value;
 }
 
-export function App({ initialScreen = 'home' }: { initialScreen?: AppScreen }) {
+export function App({ initialScreen = 'home', initialSupport = false }: { initialScreen?: AppScreen; initialSupport?: boolean }) {
   const [state, setState] = useState<'loading' | 'landing' | 'auth' | 'consent' | 'onboarding' | 'dashboard' | 'offline' | 'rate' | 'maintenance' | 'service' | 'error'>('loading');
   const [dashboard, setDashboard] = useState<Dashboard | null>(null);
   const [errorRequestId, setErrorRequestId] = useState<string | null>(null);
@@ -99,5 +99,5 @@ export function App({ initialScreen = 'home' }: { initialScreen?: AppScreen }) {
   if (state === 'error') return <main className="path-page path-state-page" aria-live="assertive"><span className="path-logo-large">П</span><h1>Не получилось открыть путь</h1><p>Попробуй ещё раз. Если ошибка повторяется, отправь обращение без медицинских и личных подробностей.</p>{supportCode}<button className="path-button primary" type="button" onClick={refresh}>Повторить</button><a href="/feedback">Обратная связь</a></main>;
   if (state === 'consent') return <ConsentRenewal onDone={refresh} legalVersion={legalIdentity.version} legalDigest={legalIdentity.digest} />;
   if (state === 'onboarding') return <Onboarding onDone={refresh} legalVersion={legalIdentity.version} legalDigest={legalIdentity.digest} />;
-  return dashboard ? <DashboardView dashboard={dashboard} refresh={refresh} initialScreen={initialScreen} /> : null;
+  return dashboard ? <DashboardView dashboard={dashboard} refresh={refresh} initialScreen={initialScreen} initialSupport={initialSupport} /> : null;
 }

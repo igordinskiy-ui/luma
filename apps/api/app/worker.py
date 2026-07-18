@@ -1,5 +1,6 @@
 """Reliable outbox worker: database claims + Redis singleton lock for beta deployments."""
 import asyncio
+import json
 import time
 import uuid
 from datetime import datetime, timedelta, timezone
@@ -13,10 +14,24 @@ from .config import public_launch_open, settings, validate_security_settings
 from .db import SessionLocal
 from .models import AnalyticsEvent, Feedback, NotificationDelivery, OutboxEvent, PushSubscription, QuitPlan, User
 from .notifications import can_send, create_delivery
-from .risk import assess
 from .redis_lock import OUTBOX_WORKER_LOCK_KEY, release_worker_lock
 
 MAX_ATTEMPTS = 5
+
+
+def web_push_payload(template: str, body: str) -> str:
+    """Build a bounded, non-sensitive payload understood by the PWA worker."""
+    path = "/app/support" if template in {"coping", "recovery"} else "/app"
+    return json.dumps({"version": 1, "body": body[:240], "path": path}, ensure_ascii=False, separators=(",", ":"))
+
+
+def notification_message(template: str) -> str:
+    """Keep lock-screen and Telegram previews free of inferred user context."""
+    if template == "test":
+        return "Тестовое сообщение доставлено. Канал работает."
+    if template in {"coping", "recovery"}:
+        return "Трудный момент можно пройти коротким шагом. Поддержка рядом."
+    return "Открой свой путь и выбери следующий честный шаг."
 
 
 def retention_cleanup(now: datetime | None = None) -> dict[str, int]:
@@ -55,15 +70,15 @@ async def process_event(bot: Bot | None, event_id: int) -> None:
         user = db.get(User, event.user_id)
         if not user or event.topic not in {"behavior.craving", "recovery.requested", "quit_plan.created", "scheduled.checkin", "notification.test"}:
             event.status = "processed"; db.commit(); return
-        _, intervention, _ = assess(db, user.id)
         template = "test" if event.topic == "notification.test" else "coping" if event.topic == "behavior.craving" else "recovery"
+        message = notification_message(template)
         delivery = create_delivery(db, user, template, event.id)
         if not delivery:
             event.status = "processed"; db.commit(); return
         delivery.attempts += 1
         try:
             if not bot: raise RuntimeError("Telegram delivery is not configured")
-            await bot.send_message(int(user.telegram_id), intervention)
+            await bot.send_message(int(user.telegram_id), message)
             delivery.status, delivery.sent_at, event.status = "sent", utc_now(), "processed"
         except Exception as exc:
             subscriptions = list(db.scalars(select(PushSubscription).where(PushSubscription.user_id == user.id)))
@@ -71,7 +86,7 @@ async def process_event(bot: Bot | None, event_id: int) -> None:
             if settings.vapid_private_key and subscriptions:
                 for subscription in subscriptions:
                     try:
-                        await asyncio.to_thread(webpush, {"endpoint": subscription.endpoint, "keys": {"p256dh": subscription.p256dh, "auth": subscription.auth}}, data=intervention, vapid_private_key=settings.vapid_private_key, vapid_claims={"sub": settings.vapid_subject})
+                        await asyncio.to_thread(webpush, {"endpoint": subscription.endpoint, "keys": {"p256dh": subscription.p256dh, "auth": subscription.auth}}, data=web_push_payload(template, message), vapid_private_key=settings.vapid_private_key, vapid_claims={"sub": settings.vapid_subject})
                         sent_web_push = True
                     except WebPushException as push_error:
                         response = getattr(push_error, "response", None)

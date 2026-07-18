@@ -116,3 +116,21 @@ test('legal navigation cannot replace the offline app shell cache', async ({ pag
     await context.setOffline(false);
   }
 });
+
+test('a notification deep link returns an authenticated user directly to support', async ({ page }) => {
+  await page.addInitScript(() => {
+    sessionStorage.setItem('kurilka-access-token', 'notification-e2e-token');
+    sessionStorage.setItem('kurilka-user-id', '42');
+  });
+  await page.route('**/api/v1/client-telemetry', route => route.fulfill({ status: 204 }));
+  await page.route('**/api/v1/bootstrap', route => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ age_confirmed: true, consent_current: true, onboarded: true }) }));
+  await page.route('**/api/v1/dashboard', route => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ phase: 'quit', remaining: 0, cigarettes_per_pack: 20, pack_price: 250, smoke_free_seconds: 3600, best_smoke_free_seconds: 3600, attempt_number: 1, next_milestone_seconds: 7200, next_milestone_label: '2 часа', avoided_cigarettes: 1, saved_money: 12.5, risk: 'low', intervention: '', reasons: 'Дышать свободнее', recent_triggers: [], preparation_steps: [], recovery_until: null, recovery_steps: [], target_quit_at: null }) }));
+  await page.route('**/api/v1/coping-techniques', route => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ content_version: 'v1', content_digest: 'digest', techniques: [{ id: 'breathing', title: 'Медленный выдох', duration_seconds: 60, instruction: 'Сделай спокойный выдох.' }] }) }));
+
+  await page.goto('/app/support');
+  await expect(page).toHaveURL(/\/app\/support$/);
+  await expect(page.getByRole('dialog', { name: 'Что за тяга сейчас?' })).toBeVisible();
+  expect((await new AxeBuilder({ page }).include('[role="dialog"]').analyze()).violations).toEqual([]);
+  await page.getByRole('button', { name: 'Закрыть и сохранить выход' }).click();
+  await expect(page).toHaveURL(/\/app$/);
+});

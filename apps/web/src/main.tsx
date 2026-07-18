@@ -49,6 +49,7 @@ export function Root() {
   if (query.has('designs')) return import.meta.env.DEV ? <Navigate to="/dev/designs" replace /> : <Navigate to="/" replace />;
   return <Routes>
     <Route path="/" element={<App />} />
+    <Route path="/app/support" element={<App initialSupport />} />
     <Route path="/app/*" element={<App />} />
     <Route path="/journal" element={<App initialScreen="journal" />} />
     <Route path="/settings" element={<App initialScreen="settings" />} />

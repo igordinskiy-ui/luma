@@ -21,13 +21,13 @@
 
 ## Текущий baseline
 
-Обновлено: 2026-07-18.
+Обновлено: 2026-07-19.
 
 | Область | Состояние | Доказательство / следующий шаг |
 | --- | --- | --- |
-| Web production build | completed | `npm run build`; 96.42 KB gzip JS по budget script, ниже обязательного лимита 150 KB; pinned Cyrillic fonts и pixel baselines стабильны на Windows/Linux |
-| Web unit/a11y baseline | completed | Vitest: 23 passed; Playwright + axe/PWA/web-vitals/privacy/coping/journey/journal/notifications/staff/error/reflow/visual states: 157 passed на 390/430/768/1440 и отдельном 320 px zoom-equivalent production preview |
-| API unit baseline | completed | полный regression: 169 passed без skip; migration head `20260717_21`, ownership, OIDC, notification, retention, journey, privacy, runtime/preflight и error-contract сценарии успешны |
+| Web production build | completed | `npm run build`; 96.44 KB gzip JS по budget script, ниже обязательного лимита 150 KB; pinned Cyrillic fonts и pixel baselines стабильны на Windows/Linux |
+| Web unit/a11y baseline | completed | Vitest: 25 passed; Playwright + axe/PWA/web-vitals/privacy/coping/journey/journal/notifications/staff/error/reflow/visual states: 161 passed на 390/430/768/1440 и отдельном 320 px zoom-equivalent production preview |
+| API unit baseline | completed | полный regression: 171 passed без skip; migration head `20260717_21`, ownership, OIDC, notification, retention, journey, privacy, runtime/preflight и error-contract сценарии успешны |
 | Основной стиль | completed | «Путь» зафиксирован в ADR-002 и применён к пользовательским экранам |
 | Browser prototype QA | completed | dev-only каталог `/dev/designs`, production coping-flow и пять фаз dashboard доступны раздельно; каталог не попадает в production bundle |
 | Production preview pipeline | completed | Hosted deploy jobs применяют revision, миграции и health checks на VPS; public user gate остаётся закрытым |
@@ -44,7 +44,7 @@
 | 2. Жизненный цикл пути | completed | `QuitAttempt`, `paused_from`, row-locked transitions, лучший/текущий период, preparation → last pack → quit, pause/resume, recovery и 15-минутная отмена с откатом счётчика/периода закрыты API concurrency/integration и production browser/axe regression |
 | 3. Production coping-flow | external-blocked | repository-часть завершена: versioned model/API/content, 4 шага, pause/change/complete, sequential user-bound offline replay, single-flight reconnect и production E2E/axe зелёные; требуются medical/content review и deployed device UAT |
 | 4. Журнал | completed | cursor pagination без дублей, timeline, server filters, truthful summary, empty/small/multi-page data, retry/error, доступные текстовые выводы, timezone и 15-минутное исправление/удаление закрыты integration и production browser/axe regression |
-| 5. Уведомления и offline-first | external-blocked | repository-часть завершена: explicit opt-in, quiet hours/limit, subscribe/unsubscribe/test, expired/cross-account cleanup, fallback/retry, idempotency и offline precache; реальная Telegram/web-push доставка требует credentials и device UAT |
+| 5. Уведомления и offline-first | external-blocked | repository-часть завершена: explicit opt-in, quiet hours/limit, subscribe/unsubscribe/test, expired/cross-account cleanup, fallback/retry, idempotency, offline precache и безопасный notification deep link прямо в поддержку; lock-screen/Telegram preview не раскрывает триггер, заметку или причину; реальная Telegram/web-push доставка требует credentials и device UAT |
 | 6. Settings, privacy, support, staff | external-blocked | repository-часть завершена: план/причины, export всех owned models, server revoke logout, device cleanup, double-confirm deletion, returning-user onboarding и staff triage; deployed auth/export/delete lifecycle требует owner/device UAT |
 | 7. Аналитика и marketing readiness | external-blocked | safe allowlisted attribution, period/funnel/first-action/D1/D7/D14, staff filters, production landing, 3 SEO routes, deep-link kit, 12 creatives, FAQ и experiment scorecard готовы; публикация и расходы требуют подтверждения владельца |
 | 8. Security, reliability, observability | external-blocked | error contract, structured logs/metrics, alert rules, retention, OIDC/egress policy, UTC clock, lifespan, pinned dependencies/images, resource limits, bundle/vitals budgets, 0 Critical/High hosted scans и synthetic backup/restore закрыты; нужны production alert receipt и датированный изолированный restore drill |
@@ -52,6 +52,8 @@
 | 10. Production, pilot, public beta | external-blocked | smoke/load/pilot runbooks готовы; нужны credentials, deploy authority, 4 недели пилота, go/no-go и 7 дней стабилизации |
 
 ## Последние доказательства
+
+- 2026-07-19 — Stage 5 notification action + UI/UX: Telegram и web-push previews переведены на короткий неперсонализированный текст без триггера, заметки и причины; web-push использует bounded versioned JSON с allowlisted `/app`/`/app/support` route. Service worker теперь по нажатию безопасно фокусирует существующую вкладку или открывает приложение, отклоняет внешний URL, а `/app/support` сразу показывает доступный четырёхшаговый flow и после закрытия возвращает на `/app`. Unit-контракт service worker и payload privacy зелёный; production browser/axe deep-link QA успешен на 390/430/768/1440. Полный итог: API 171/171, Vitest 25/25, Playwright 161/161, production JS 96.44 KB gzip. Реальная доставка по-прежнему требует owner credentials и device UAT и не заявляется.
 
 - 2026-07-14 — onboarding `/dev/onboarding`: desktop/mobile browser QA, 390 px без overflow, ошибки консоли отсутствуют.
 - 2026-07-14 — journey `/dev/dashboard`: 390×844 и 1440×900, доступный progressbar, зоны управления ≥44 px, скриншоты `journey-dashboard-mobile.png` и `journey-dashboard-desktop.png` в browser evidence.

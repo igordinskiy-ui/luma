@@ -1,4 +1,5 @@
 """Deterministic delivery fallback, expiry and retry coverage for the outbox worker."""
+import json
 from datetime import datetime, timedelta
 
 import pytest
@@ -33,9 +34,9 @@ def create_processing_event(name: str, *, attempts: int = 1, with_push: bool = T
 @pytest.mark.asyncio
 async def test_telegram_failure_falls_back_to_web_push(monkeypatch):
     user_id, event_id = create_processing_event("710000001")
-    calls: list[str] = []
+    calls: list[tuple[str, str]] = []
     monkeypatch.setattr(settings, "vapid_private_key", "test-private-key")
-    monkeypatch.setattr(worker, "webpush", lambda subscription, **_kwargs: calls.append(subscription["endpoint"]))
+    monkeypatch.setattr(worker, "webpush", lambda subscription, **kwargs: calls.append((subscription["endpoint"], kwargs["data"])))
 
     await worker.process_event(FailingTelegram(), event_id)
 
@@ -46,10 +47,27 @@ async def test_telegram_failure_falls_back_to_web_push(monkeypatch):
         assert event is not None and event.status == "processed"
         assert delivery is not None and delivery.status == "sent" and delivery.channel == "web_push"
         assert delivery.attempts == 1 and delivery.sent_at is not None
-        assert calls == ["https://fcm.googleapis.com/710000001"]
+        assert calls[0][0] == "https://fcm.googleapis.com/710000001"
+        assert json.loads(calls[0][1]) == {
+            "version": 1,
+            "body": "Тестовое сообщение доставлено. Канал работает.",
+            "path": "/app",
+        }
         assert db.scalar(select(PushSubscription).where(PushSubscription.user_id == user_id)) is not None
     finally:
         db.close()
+
+
+def test_support_push_payload_is_bounded_and_has_an_allowlisted_deep_link():
+    payload = json.loads(worker.web_push_payload("coping", "я" * 500))
+    assert payload == {"version": 1, "body": "я" * 240, "path": "/app/support"}
+
+
+def test_notification_previews_never_include_a_trigger_note_or_reason():
+    private_values = {"coffee", "panic note", "my family reason"}
+    for template in ("test", "coping", "recovery"):
+        message = worker.notification_message(template)
+        assert not any(value in message for value in private_values)
 
 
 @pytest.mark.asyncio

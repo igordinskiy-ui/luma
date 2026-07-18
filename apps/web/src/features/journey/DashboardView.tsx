@@ -49,16 +49,17 @@ type DashboardViewProps = {
   dashboard: Dashboard;
   refresh: () => void | Promise<void>;
   initialScreen?: 'home' | 'journal' | 'settings';
+  initialSupport?: boolean;
   updatePlan?: (data: object) => Promise<unknown>;
 };
 
-export function DashboardView({ dashboard, refresh, initialScreen = 'home', updatePlan = api.plan }: DashboardViewProps) {
+export function DashboardView({ dashboard, refresh, initialScreen = 'home', initialSupport = false, updatePlan = api.plan }: DashboardViewProps) {
   const [trigger, setTrigger] = useState<EventInput['trigger']>('stress');
   const [note, setNote] = useState('');
   const [notice, setNotice] = useState('');
   const [screen, setScreen] = useState<'home' | 'journal' | 'settings'>(initialScreen);
   const navigate = useNavigate();
-  const [supportOpen, setSupportOpen] = useState(false);
+  const [supportOpen, setSupportOpen] = useState(initialSupport);
   const [pauseOpen, setPauseOpen] = useState(false);
   const [relapseOpen, setRelapseOpen] = useState(false);
   const [relapseContext, setRelapseContext] = useState<RelapseContext>('one');
@@ -139,6 +140,6 @@ export function DashboardView({ dashboard, refresh, initialScreen = 'home', upda
     <nav className="path-bottom-nav" aria-label="Основная навигация"><button className="active" type="button" onClick={() => changeScreen('home')}><span>⌂</span>Сегодня</button><button className="support" type="button" onClick={() => setSupportOpen(true)}><span>＋</span>Поддержка</button><button type="button" onClick={() => changeScreen('journal')}><span>≡</span>Журнал</button></nav>
     <PathDialog open={pauseOpen} onClose={() => setPauseOpen(false)} labelledBy="pause-title" className="path-pause-dialog"><header><div><span className="path-kicker">Без потери истории</span><h2 id="pause-title">Поставить путь на паузу?</h2></div><button type="button" aria-label="Закрыть" onClick={() => setPauseOpen(false)}>×</button></header><p>Текущая точка, все события и лучший период сохранятся. Вернуться можно будет одним действием.</p><div className="path-form-actions"><button className="path-button ghost" type="button" onClick={() => setPauseOpen(false)}>Остаться в пути</button><button className="path-button primary" disabled={phaseBusy} type="button" onClick={() => void changePhase('paused')}>{phaseBusy ? 'Сохраняем…' : 'Поставить на паузу'}</button></div></PathDialog>
     <PathDialog open={relapseOpen} onClose={() => setRelapseOpen(false)} labelledBy="relapse-title" className="path-relapse-dialog"><header><div><span className="path-kicker">Без наказания и обнуления опыта</span><h2 id="relapse-title">Что происходит сейчас?</h2></div><button type="button" aria-label="Закрыть" onClick={() => setRelapseOpen(false)}>×</button></header><p>Выбери ближайший вариант — от него зависит короткий план возвращения. Лучший результат и вся история останутся.</p><div className="path-relapse-options">{relapseContexts.map(([id, label]) => <button aria-pressed={relapseContext === id} className={relapseContext === id ? 'active' : ''} key={id} type="button" onClick={() => setRelapseContext(id)}>{label}</button>)}</div><div className="path-form-actions"><button className="path-button ghost" type="button" disabled={relapseBusy} onClick={() => setRelapseOpen(false)}>Вернуться без отметки</button><button className="path-button primary" disabled={relapseBusy} type="button" onClick={() => void confirmRelapse()}>{relapseBusy ? 'Сохраняем…' : 'Получить план возвращения'}</button></div></PathDialog>
-    <CopingFlow open={supportOpen} reason={dashboard.reasons} onClose={() => setSupportOpen(false)} onCompleted={(message, synced) => { setNotice(message); if (synced) void refresh(); }} />
+    <CopingFlow open={supportOpen} reason={dashboard.reasons} onClose={() => { setSupportOpen(false); if (initialSupport) navigate('/app', { replace: true }); }} onCompleted={(message, synced) => { setNotice(message); if (synced) void refresh(); }} />
   </main>;
 }
