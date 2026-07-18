@@ -1,3 +1,4 @@
+/// <reference types="node" />
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { runInNewContext } from 'node:vm';
@@ -30,7 +31,7 @@ function workerHarness() {
 describe('service worker notification navigation', () => {
   it('shows a versioned support payload without changing its safe route', async () => {
     const { handlers, showNotification } = workerHarness();
-    let completion = Promise.resolve();
+    let completion: Promise<unknown> = Promise.resolve();
     handlers.get('push')?.({
       data: { json: () => ({ version: 1, body: 'Поддержка рядом.', path: '/app/support' }) },
       waitUntil: promise => { completion = Promise.resolve(promise); },
@@ -44,7 +45,7 @@ describe('service worker notification navigation', () => {
 
   it('focuses an open app window and rejects an untrusted notification route', async () => {
     const { handlers, client, openWindow } = workerHarness();
-    let completion = Promise.resolve();
+    let completion: Promise<unknown> = Promise.resolve();
     const close = vi.fn();
     handlers.get('notificationclick')?.({
       notification: { data: { path: 'https://attacker.test/' }, close },
