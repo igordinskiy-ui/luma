@@ -43,11 +43,13 @@ self.addEventListener('push', event => {
     try {
       const payload = event.data.json();
       const allowedPaths = ['/app', '/app/support', '/journal'];
-      if (payload?.version === 1 && typeof payload.body === 'string' && allowedPaths.includes(payload.path)) {
-        message = { body: payload.body.slice(0, 240), path: payload.path };
+      if (payload?.version === 1 && typeof payload.body === 'string' && payload.body.trim() && allowedPaths.includes(payload.path)) {
+        message = { body: payload.body.trim().slice(0, 240), path: payload.path };
       }
     } catch {
-      message = { body: event.data.text().slice(0, 240) || fallback.body, path: fallback.path };
+      // Old free-text payloads can contain context selected from user events.
+      // Never render them on a lock screen; fail closed to neutral copy.
+      message = fallback;
     }
   }
   event.waitUntil(self.registration.showNotification('Последняя пачка', {

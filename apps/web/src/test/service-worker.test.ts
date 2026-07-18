@@ -14,7 +14,7 @@ function workerHarness() {
     navigate: vi.fn(async (_url: string) => client),
     focus: vi.fn(async () => client),
   };
-  const showNotification = vi.fn(async () => undefined);
+  const showNotification = vi.fn(async (_title: string, _options: Record<string, unknown>) => undefined);
   const openWindow = vi.fn(async (_url: string) => client);
   const worker = {
     location: { origin: 'https://example.test' },
@@ -41,6 +41,24 @@ describe('service worker notification navigation', () => {
       body: 'Поддержка рядом.',
       data: { path: '/app/support' },
     }));
+  });
+
+  it('replaces a legacy free-text payload with neutral lock-screen copy', async () => {
+    const { handlers, showNotification } = workerHarness();
+    let completion: Promise<unknown> = Promise.resolve();
+    handlers.get('push')?.({
+      data: {
+        json: () => { throw new SyntaxError('legacy text'); },
+        text: () => 'После кофе тебе обычно хочется курить.',
+      },
+      waitUntil: promise => { completion = Promise.resolve(promise); },
+    });
+    await completion;
+    expect(showNotification).toHaveBeenCalledWith('Последняя пачка', expect.objectContaining({
+      body: 'Открой «Последнюю пачку», чтобы продолжить план.',
+      data: { path: '/app' },
+    }));
+    expect(showNotification.mock.calls[0]?.[1]).not.toEqual(expect.objectContaining({ body: expect.stringContaining('кофе') }));
   });
 
   it('focuses an open app window and rejects an untrusted notification route', async () => {
