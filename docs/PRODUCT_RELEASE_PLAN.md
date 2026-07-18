@@ -177,6 +177,8 @@
 
 - 2026-07-17 — hosted support-depth regression: GitHub Actions run `29546297901` для revision `256f6d2` успешно завершил API 159/159 с migration `20260717_21`, web unit/build и Playwright/axe matrix 129/129, repository-security, containers/backup-restore smoke и production deploy. VPS получил новый код и схему; это не означает публикацию draft-контента или прохождение medical/content/legal review, поскольку public launch gate остаётся закрытым.
 
+- 2026-07-17 — Stage 8 UTC/timezone integrity cycle: существующая naive-UTC схема БД сохранена без рискованной миграции, но все публичные даты dashboard, quit plan, events, journal, coping, staff feedback и полного privacy export теперь сериализуются однозначно как RFC 3339 UTC с `Z`. Входной `target_quit_at` сначала переводится в UTC: `15:30+03:00` хранится и возвращается как тот же момент `12:30Z`, а не как сдвинутое `15:30Z`. Unit/integration-контракты покрывают преобразование, export и journal edit window; реальный Chromium в `Europe/Moscow` на 390/430/768/1440 подтверждает видимое `09:15Z → 12:15`. Полная локальная регрессия: API 163/163 без skip, Vitest 23/23, production build 96.30 KB gzip JS при бюджете 150 KB, Playwright/axe/offline/performance/zoom/visual 153/153. Hosted CI/deploy evidence ожидается после отправки коммита.
+
 ## Quality gates
 
 - Backend: unit, integration, ownership, idempotency, concurrency, rate limits,

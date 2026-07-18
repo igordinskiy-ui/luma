@@ -41,6 +41,7 @@ def test_relapse_starts_two_hour_recovery_mode():
         assert response.status_code == 200
         assert dashboard.status_code == 200
         assert dashboard.json()["recovery_until"] is not None
+        assert dashboard.json()["recovery_until"].endswith("Z")
         assert len(dashboard.json()["recovery_steps"]) >= 3
         assert dashboard.json()["attempt_number"] == 2
         assert dashboard.json()["best_smoke_free_seconds"] >= 172800

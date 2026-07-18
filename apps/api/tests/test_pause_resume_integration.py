@@ -1,5 +1,5 @@
 """Pause/resume returns to the exact phase instead of guessing from counts."""
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from fastapi.testclient import TestClient
 
@@ -51,6 +51,27 @@ def test_preparation_plan_cannot_clear_its_target_date():
             assert rejected.status_code == 422
             db.expire_all()
             assert db.query(QuitPlan).filter_by(user_id=user.id).one().target_quit_at == target
+    finally:
+        app.dependency_overrides.clear()
+        db.close()
+
+
+def test_preparation_target_preserves_the_instant_across_timezones():
+    db = SessionLocal()
+    user = User(telegram_id="preparation-timezone-user", age_confirmed_at=datetime.utcnow())
+    db.add(user); db.flush()
+    db.add(QuitPlan(user_id=user.id, phase="preparation", remaining=20, target_quit_at=datetime.utcnow() + timedelta(days=7)))
+    db.commit()
+    app.dependency_overrides[current_user] = lambda: user
+    try:
+        local_target = datetime.now(timezone(timedelta(hours=3))) + timedelta(days=8)
+        expected_utc = local_target.astimezone(timezone.utc).replace(tzinfo=None)
+        with TestClient(app) as client:
+            updated = client.put("/v1/quit-plan", json={"target_quit_at": local_target.isoformat()})
+            assert updated.status_code == 200
+            db.expire_all()
+            assert db.query(QuitPlan).filter_by(user_id=user.id).one().target_quit_at == expected_utc
+            assert client.get("/v1/quit-plan").json()["target_quit_at"] == expected_utc.isoformat() + "Z"
     finally:
         app.dependency_overrides.clear()
         db.close()

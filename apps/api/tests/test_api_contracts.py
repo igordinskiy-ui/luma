@@ -1,4 +1,5 @@
-from app.schemas import ConsentIn, CopingSessionCreateIn, CopingSessionPatchIn, EventIn, OidcCompletionIn, OnboardingIn, PreferencesIn, PushSubscriptionIn, QuitPlanUpdateIn
+from app.api_time import to_utc_naive, utc_iso
+from app.schemas import ConsentIn, CopingSessionCreateIn, CopingSessionPatchIn, EventIn, EventOut, OidcCompletionIn, OnboardingIn, PreferencesIn, PushSubscriptionIn, QuitPlanUpdateIn
 from datetime import datetime, timedelta, timezone
 from pydantic import ValidationError
 import pytest
@@ -41,6 +42,14 @@ def test_quit_plan_update_rejects_past_or_timezone_naive_target():
 def test_quit_plan_update_accepts_future_timezone_aware_target():
     target = datetime.now(timezone.utc) + timedelta(days=1)
     assert QuitPlanUpdateIn(target_quit_at=target).target_quit_at == target
+
+
+def test_public_datetimes_are_normalized_to_unambiguous_utc():
+    local_instant = datetime(2026, 7, 17, 15, 30, tzinfo=timezone(timedelta(hours=3)))
+    assert to_utc_naive(local_instant) == datetime(2026, 7, 17, 12, 30)
+    assert utc_iso(to_utc_naive(local_instant)) == "2026-07-17T12:30:00Z"
+    event = EventOut(id=1, kind="craving", trigger=None, intensity=3, note="", created_at=to_utc_naive(local_instant))
+    assert '"created_at":"2026-07-17T12:30:00Z"' in event.model_dump_json()
 
 
 def test_quit_plan_numbers_are_bounded():

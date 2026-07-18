@@ -31,6 +31,8 @@ def test_export_delete_and_fresh_onboarding_after_return():
             assert exported.status_code == 200
             payload = exported.json()
             assert payload["account"]["age_confirmed_at"] is not None
+            assert payload["account"]["age_confirmed_at"].endswith("Z")
+            assert payload["account"]["created_at"].endswith("Z")
             assert len(payload["consent_history"]) == 1
             assert payload["consent_history"][0] | {"accepted_at": None} == {
                 "document_version": "2026-07-15",
@@ -42,6 +44,7 @@ def test_export_delete_and_fresh_onboarding_after_return():
             assert payload["quit_plan"]["cigarettes_per_pack"] == 20
             assert len(payload["quit_attempts"]) == 1
             assert len(payload["coping_sessions"]) == 1
+            assert payload["coping_sessions"][0]["started_at"].endswith("Z")
             assert payload["events"][0]["relapse_context"] == "afraid"
             assert len(payload["push_subscriptions"]) == 1
 

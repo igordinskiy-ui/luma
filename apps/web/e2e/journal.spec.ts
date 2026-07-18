@@ -33,6 +33,21 @@ async function mockAuthenticatedApp(page: Page) {
   await page.route('**/api/v1/dashboard', route => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(dashboard) }));
 }
 
+test('journal renders an RFC 3339 instant in the device timezone', async ({ browser }) => {
+  const context = await browser.newContext({ timezoneId: 'Europe/Moscow' });
+  const page = await context.newPage();
+  await mockAuthenticatedApp(page);
+  await page.route('**/api/v1/journal?*', route => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify({ items: [craving], next_cursor: null, summary: { total: 1, cravings: 1, coping_completed: 0, relapses: 0, sufficient_data: false, top_trigger: null } }),
+  }));
+
+  await page.goto('/journal');
+  await expect(page.locator('time[datetime="2026-07-14T09:15:00Z"]')).toHaveText('12:15');
+  await context.close();
+});
+
 test('journal paginates without duplicates and applies server filters', async ({ page }) => {
   await mockAuthenticatedApp(page);
   const queries: URLSearchParams[] = [];

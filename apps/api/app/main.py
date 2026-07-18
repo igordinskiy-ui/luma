@@ -19,6 +19,7 @@ from .journal import decode_cursor, encode_cursor
 from .session import issue_session, session_subject
 from .oidc import consume_browser_exchange, create_browser_exchange, exchange_code, start_url
 from .analytics import track
+from .api_time import to_utc_naive, utc_iso
 from .observability import RequestLogMiddleware, bounded_ratio, metrics_text, normalized_request_id
 from .rate_limit import enforce
 from .features import FREE_BETA_FEATURES, has_feature
@@ -119,8 +120,8 @@ def coping_session_out(item: CopingSession) -> dict:
         "trigger": item.trigger, "intensity_before": item.intensity_before,
         "intensity_after": item.intensity_after, "technique": item.technique, "outcome": item.outcome,
         "content_version": item.content_version, "status": item.status,
-        "started_at": item.started_at, "updated_at": item.updated_at,
-        "completed_at": item.completed_at,
+        "started_at": utc_iso(item.started_at), "updated_at": utc_iso(item.updated_at),
+        "completed_at": utc_iso(item.completed_at),
     }
 
 def staff_user(user: User = Depends(current_user)) -> User:
@@ -307,7 +308,7 @@ def onboarding(payload: OnboardingIn, request: Request, user: User = Depends(cur
     user.timezone = payload.timezone
     accept_current_consent(db, user, "onboarding")
     plan.phase = payload.start_mode
-    plan.target_quit_at = payload.target_quit_at.replace(tzinfo=None) if payload.start_mode == "preparation" and payload.target_quit_at else None
+    plan.target_quit_at = to_utc_naive(payload.target_quit_at) if payload.start_mode == "preparation" and payload.target_quit_at else None
     if plan.phase == "quit" and not plan.quit_started_at:
         plan.quit_started_at = datetime.utcnow()
         start_attempt(db, user.id, plan.quit_started_at)
@@ -328,7 +329,7 @@ def renew_consent(payload: ConsentIn, request: Request, user: User = Depends(cur
 @app.get("/v1/quit-plan")
 def get_quit_plan(user: User = Depends(current_consented_user), db: Session = Depends(get_db)):
     plan = plan_for(db, user)
-    return {"phase": plan.phase, "paused_from": plan.paused_from, "remaining": plan.remaining, "cigarettes_per_pack": plan.cigarettes_per_pack, "pack_price": plan.pack_price, "reasons": plan.reasons, "quit_started_at": plan.quit_started_at, "target_quit_at": plan.target_quit_at, "recovery_until": plan.recovery_until}
+    return {"phase": plan.phase, "paused_from": plan.paused_from, "remaining": plan.remaining, "cigarettes_per_pack": plan.cigarettes_per_pack, "pack_price": plan.pack_price, "reasons": plan.reasons, "quit_started_at": utc_iso(plan.quit_started_at), "target_quit_at": utc_iso(plan.target_quit_at), "recovery_until": utc_iso(plan.recovery_until)}
 
 @app.put("/v1/quit-plan")
 def update_quit_plan(payload: QuitPlanUpdateIn, request: Request, user: User = Depends(current_consented_user), db: Session = Depends(get_db)):
@@ -363,7 +364,7 @@ def update_quit_plan(payload: QuitPlanUpdateIn, request: Request, user: User = D
     if payload.pack_price is not None: plan.pack_price = payload.pack_price
     if payload.reasons is not None: plan.reasons = payload.reasons
     if "target_quit_at" in payload.model_fields_set:
-        plan.target_quit_at = payload.target_quit_at.replace(tzinfo=None) if payload.target_quit_at else None
+        plan.target_quit_at = to_utc_naive(payload.target_quit_at) if payload.target_quit_at else None
     if plan.phase == "preparation" and not plan.target_quit_at:
         raise HTTPException(422, "Preparation mode requires a target date")
     emit(db, user, "quit_plan.updated", {"phase": plan.phase})
@@ -641,10 +642,10 @@ def journal(
     for created_at, _, item_id, source, raw in selected:
         if source == "event":
             item = raw
-            items.append({"id": f"event:{item_id}", "source": source, "type": item.kind, "created_at": created_at, "trigger": item.trigger, "intensity_before": item.intensity, "intensity_after": None, "technique": None, "status": None, "outcome": None, "relapse_context": item.relapse_context, "note": item.note, "editable_until": created_at + timedelta(minutes=15)})
+            items.append({"id": f"event:{item_id}", "source": source, "type": item.kind, "created_at": utc_iso(created_at), "trigger": item.trigger, "intensity_before": item.intensity, "intensity_after": None, "technique": None, "status": None, "outcome": None, "relapse_context": item.relapse_context, "note": item.note, "editable_until": utc_iso(created_at + timedelta(minutes=15))})
         else:
             item = raw
-            items.append({"id": f"coping:{item_id}", "source": source, "type": "coping", "created_at": created_at, "trigger": item.trigger, "intensity_before": item.intensity_before, "intensity_after": item.intensity_after, "technique": item.technique, "status": item.status, "outcome": item.outcome, "relapse_context": None, "note": "", "editable_until": None})
+            items.append({"id": f"coping:{item_id}", "source": source, "type": "coping", "created_at": utc_iso(created_at), "trigger": item.trigger, "intensity_before": item.intensity_before, "intensity_after": item.intensity_after, "technique": item.technique, "status": item.status, "outcome": item.outcome, "relapse_context": None, "note": "", "editable_until": None})
 
     event_total = db.scalar(select(func.count(BehaviorEvent.id)).where(*summary_event_conditions)) if include_events else 0
     coping_total = db.scalar(select(func.count(CopingSession.id)).where(*summary_coping_conditions)) if include_coping else 0
@@ -855,7 +856,7 @@ def admin_feedback(status: str = "open", _: User = Depends(staff_user), db: Sess
     if status not in {"open", "resolved"}:
         raise HTTPException(422, "Invalid feedback status")
     rows = db.scalars(select(Feedback).where(Feedback.status == status).order_by(Feedback.created_at.asc()).limit(200))
-    return [{"id": item.id, "category": item.category, "body": item.body, "status": item.status, "created_at": item.created_at, "resolved_at": item.resolved_at} for item in rows]
+    return [{"id": item.id, "category": item.category, "body": item.body, "status": item.status, "created_at": utc_iso(item.created_at), "resolved_at": utc_iso(item.resolved_at)} for item in rows]
 
 @app.patch("/v1/admin/feedback/{feedback_id}")
 def update_feedback(feedback_id: int, payload: FeedbackStatusIn, _: User = Depends(staff_user), db: Session = Depends(get_db)):
@@ -884,19 +885,19 @@ def export(user: User = Depends(current_user), db: Session = Depends(get_db)):
     return {
         "account": {
             "timezone": user.timezone,
-            "age_confirmed_at": user.age_confirmed_at,
+            "age_confirmed_at": utc_iso(user.age_confirmed_at),
             "consent_version": user.consent_version,
             "consent_digest": user.consent_digest,
-            "consented_at": user.consented_at,
+            "consented_at": utc_iso(user.consented_at),
             "acquisition_source": user.acquisition_source,
-            "created_at": user.created_at,
+            "created_at": utc_iso(user.created_at),
         },
         "consent_history": [{
             "document_version": item.document_version,
             "document_digest": item.document_digest,
             "source": item.source,
             "age_confirmed": item.age_confirmed,
-            "accepted_at": item.accepted_at,
+            "accepted_at": utc_iso(item.accepted_at),
         } for item in consent_history],
         "quit_plan": {
             "phase": plan.phase,
@@ -905,20 +906,20 @@ def export(user: User = Depends(current_user), db: Session = Depends(get_db)):
             "cigarettes_per_pack": plan.cigarettes_per_pack,
             "pack_price": plan.pack_price,
             "reasons": plan.reasons,
-            "quit_started_at": plan.quit_started_at,
-            "target_quit_at": plan.target_quit_at,
-            "recovery_until": plan.recovery_until,
+            "quit_started_at": utc_iso(plan.quit_started_at),
+            "target_quit_at": utc_iso(plan.target_quit_at),
+            "recovery_until": utc_iso(plan.recovery_until),
         } if plan else None,
-        "quit_attempts": [{"started_at": item.started_at, "ended_at": item.ended_at, "end_reason": item.end_reason, "created_at": item.created_at} for item in attempts],
+        "quit_attempts": [{"started_at": utc_iso(item.started_at), "ended_at": utc_iso(item.ended_at), "end_reason": item.end_reason, "created_at": utc_iso(item.created_at)} for item in attempts],
         "coping_sessions": [coping_session_out(item) for item in coping_sessions],
         "notification_preferences": {"enabled": preferences.enabled, "max_daily": preferences.max_daily, "quiet_start": preferences.quiet_start, "quiet_end": preferences.quiet_end} if preferences else None,
-        "events": [{"kind": e.kind, "trigger": e.trigger, "intensity": e.intensity, "note": e.note, "relapse_context": e.relapse_context, "created_at": e.created_at} for e in events],
-        "notification_deliveries": [{"channel": d.channel, "template": d.template, "status": d.status, "attempts": d.attempts, "sent_at": d.sent_at, "created_at": d.created_at} for d in deliveries],
-        "feedback": [{"category": item.category, "body": item.body, "status": item.status, "resolved_at": item.resolved_at, "created_at": item.created_at} for item in feedback],
-        "analytics": [{"event_name": item.event_name, "properties": item.properties, "schema_version": item.schema_version, "created_at": item.created_at} for item in analytics],
-        "entitlements": [{"feature": item.feature, "source": item.source, "expires_at": item.expires_at, "created_at": item.created_at} for item in entitlements],
-        "outbox": [{"topic": item.topic, "payload": item.payload, "status": item.status, "attempts": item.attempts, "created_at": item.created_at} for item in outbox],
-        "push_subscriptions": [{"endpoint": item.endpoint, "created_at": item.created_at} for item in subscriptions],
+        "events": [{"kind": e.kind, "trigger": e.trigger, "intensity": e.intensity, "note": e.note, "relapse_context": e.relapse_context, "created_at": utc_iso(e.created_at)} for e in events],
+        "notification_deliveries": [{"channel": d.channel, "template": d.template, "status": d.status, "attempts": d.attempts, "sent_at": utc_iso(d.sent_at), "created_at": utc_iso(d.created_at)} for d in deliveries],
+        "feedback": [{"category": item.category, "body": item.body, "status": item.status, "resolved_at": utc_iso(item.resolved_at), "created_at": utc_iso(item.created_at)} for item in feedback],
+        "analytics": [{"event_name": item.event_name, "properties": item.properties, "schema_version": item.schema_version, "created_at": utc_iso(item.created_at)} for item in analytics],
+        "entitlements": [{"feature": item.feature, "source": item.source, "expires_at": utc_iso(item.expires_at), "created_at": utc_iso(item.created_at)} for item in entitlements],
+        "outbox": [{"topic": item.topic, "payload": item.payload, "status": item.status, "attempts": item.attempts, "created_at": utc_iso(item.created_at)} for item in outbox],
+        "push_subscriptions": [{"endpoint": item.endpoint, "created_at": utc_iso(item.created_at)} for item in subscriptions],
     }
 
 @app.delete("/v1/account", status_code=204)

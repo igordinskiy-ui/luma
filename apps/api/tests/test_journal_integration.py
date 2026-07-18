@@ -32,6 +32,8 @@ def test_journal_cursor_has_no_duplicates_and_filters_server_side():
             assert first_ids.isdisjoint(second_ids)
             assert first.json()["summary"]["total"] == 23
             assert first.json()["summary"]["top_trigger"] in {"coffee", "stress"}
+            assert all(item["created_at"].endswith("Z") for item in first.json()["items"])
+            assert all(item["editable_until"].endswith("Z") for item in first.json()["items"] if item["editable_until"])
 
             coping = client.get("/v1/journal?period=all&type=coping&trigger=stress")
             assert len(coping.json()["items"]) == 8
@@ -58,6 +60,7 @@ def test_event_can_be_corrected_only_inside_fifteen_minute_window():
             assert corrected.json()["trigger"] == "coffee"
             assert corrected.json()["intensity"] == 2
             assert corrected.json()["note"] == "after"
+            assert corrected.json()["created_at"].endswith("Z")
 
             too_late = client.patch(f"/v1/events/{expired.id}", json={"note": "changed"})
             assert too_late.status_code == 409

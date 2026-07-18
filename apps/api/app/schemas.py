@@ -5,7 +5,15 @@ from urllib.parse import urlsplit
 import base64
 import binascii
 import re
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import BaseModel, Field, field_serializer, field_validator, model_validator
+from .api_time import utc_iso
+
+
+class ApiOut(BaseModel):
+    """Response model that never emits timezone-ambiguous datetime strings."""
+    @field_serializer("created_at", "updated_at", "recovery_until", "target_quit_at", check_fields=False)
+    def serialize_utc_datetime(self, value: datetime | None) -> str | None:
+        return utc_iso(value)
 
 class OnboardingIn(BaseModel):
     timezone: str = "Europe/Moscow"
@@ -117,7 +125,7 @@ class QuitPlanUpdateIn(BaseModel):
             raise ValueError("Target date must be in the future")
         return value
 
-class EventOut(BaseModel):
+class EventOut(ApiOut):
     id: int
     kind: str
     trigger: str | None
@@ -176,7 +184,7 @@ class ClientTelemetryIn(BaseModel):
     event: Literal["session_started", "crash"]
     client_session_id: str = Field(pattern=r"^[0-9a-f-]{36}$")
 
-class DashboardOut(BaseModel):
+class DashboardOut(ApiOut):
     phase: str
     paused_from: str | None = None
     remaining: int
