@@ -76,3 +76,30 @@ test('staff access denial is explicit and never renders operational data', async
   await expect(page.getByRole('heading', { name: 'Операционный статус' })).toHaveCount(0);
   expect((await new AxeBuilder({ page }).include('.path-staff-page').analyze()).violations).toEqual([]);
 });
+
+test('staff metrics distinguish missing denominators from a measured zero', async ({ page }) => {
+  await page.addInitScript(() => {
+    sessionStorage.setItem('kurilka-access-token', 'staff-empty-e2e-token');
+    sessionStorage.setItem('kurilka-user-id', '9');
+  });
+  const emptyOverview = {
+    ...overview,
+    users_total: 0,
+    users_by_acquisition_source: {},
+    activation: { onboarded: 0, rate: 0 },
+    funnel: { started: 0, onboarded: 0, first_action_24h: 0, first_action_rate: 0 },
+    retention: { d1: { eligible: 0, retained: 0, rate: 0 }, d7: { eligible: 0, retained: 0, rate: 0 }, d14: { eligible: 0, retained: 0, rate: 0 } },
+    notification_health: { muted: 0, preferences_total: 0, mute_rate: 0, delivery_failures_last_24h: 0, delivery_failure_rate: 0 },
+    client_health: { sessions: 0, crashed: 0, crash_free_rate: 0 },
+    plans_by_phase: {}, events_last_24h: 0, deliveries_last_24h: {}, outbox_by_status: {}, open_feedback: 0,
+  };
+  await page.route('**/api/v1/admin/overview?*', route => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(emptyOverview) }));
+  await page.route('**/api/v1/admin/feedback?*', route => route.fulfill({ status: 200, contentType: 'application/json', body: '[]' }));
+
+  await page.goto('/staff');
+  await expect(page.getByText(/Crash-free: нет данных/)).toBeVisible();
+  await expect(page.getByText(/Первое действие ≤24 ч: 0\/0 \(нет данных\)/)).toBeVisible();
+  await expect(page.getByText(/D1: нет полного окна/)).toBeVisible();
+  await expect(page.getByText(/Delivery failures за 24 часа: 0 \(нет завершённых попыток\)/)).toBeVisible();
+  expect((await new AxeBuilder({ page }).include('.path-staff-page').analyze()).violations).toEqual([]);
+});

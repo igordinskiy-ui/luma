@@ -7,7 +7,7 @@ from app.auth import current_user
 from app.config import settings
 from app.db import SessionLocal
 from app.main import app
-from app.models import BehaviorEvent, CopingSession, User
+from app.models import BehaviorEvent, CopingSession, QuitPlan, User
 
 
 def test_retention_uses_exact_complete_windows(monkeypatch):
@@ -38,6 +38,41 @@ def test_retention_uses_exact_complete_windows(monkeypatch):
             "d1": {"eligible": 3, "retained": 1, "rate": 0.3333},
             "d7": {"eligible": 2, "retained": 1, "rate": 0.5},
             "d14": {"eligible": 2, "retained": 1, "rate": 0.5},
+        }
+    finally:
+        app.dependency_overrides.clear()
+        db.close()
+
+
+def test_first_action_requires_a_real_post_signup_24_hour_window(monkeypatch):
+    now = datetime.utcnow()
+    db = SessionLocal()
+    admin = User(telegram_id="first-action-admin", acquisition_source="first_action_window", created_at=now)
+    backdated = User(telegram_id="first-action-backdated", acquisition_source="first_action_window", created_at=now - timedelta(days=3))
+    late = User(telegram_id="first-action-late", acquisition_source="first_action_window", created_at=now - timedelta(days=3))
+    valid = User(telegram_id="first-action-valid", acquisition_source="first_action_window", created_at=now - timedelta(days=3))
+    db.add_all([admin, backdated, late, valid]); db.flush()
+    db.add_all([
+        QuitPlan(user_id=backdated.id, phase="last_pack", remaining=5),
+        QuitPlan(user_id=late.id, phase="last_pack", remaining=5),
+        QuitPlan(user_id=valid.id, phase="last_pack", remaining=5),
+        BehaviorEvent(user_id=backdated.id, kind="craving", client_event_id="first-action-before-signup", created_at=backdated.created_at - timedelta(minutes=1)),
+        BehaviorEvent(user_id=late.id, kind="craving", client_event_id="first-action-after-window", created_at=late.created_at + timedelta(hours=25)),
+        BehaviorEvent(user_id=valid.id, kind="craving", client_event_id="first-action-inside-window", created_at=valid.created_at + timedelta(hours=1)),
+    ])
+    db.commit()
+    monkeypatch.setattr(settings, "admin_telegram_ids", admin.telegram_id)
+    monkeypatch.setattr(settings, "acquisition_sources", "first_action_window")
+    app.dependency_overrides[current_user] = lambda: admin
+    try:
+        with TestClient(app) as client:
+            response = client.get("/v1/admin/overview?period=30d&source=first_action_window")
+        assert response.status_code == 200
+        assert response.json()["funnel"] == {
+            "started": 4,
+            "onboarded": 3,
+            "first_action_24h": 1,
+            "first_action_rate": 0.3333,
         }
     finally:
         app.dependency_overrides.clear()

@@ -820,7 +820,7 @@ def admin_overview(
         event_at = db.scalar(select(func.min(BehaviorEvent.created_at)).where(BehaviorEvent.user_id == user.id))
         coping_at = db.scalar(select(func.min(CopingSession.started_at)).where(CopingSession.user_id == user.id))
         first_at = min((value for value in (event_at, coping_at) if value), default=None)
-        if first_at and first_at <= user.created_at + timedelta(hours=24): first_action_24h += 1
+        if first_at and user.created_at <= first_at <= user.created_at + timedelta(hours=24): first_action_24h += 1
 
     preferences_total = db.scalar(select(func.count(NotificationPreference.id)).where(NotificationPreference.user_id.in_(user_ids))) or 0
     preferences_muted = db.scalar(select(func.count(NotificationPreference.id)).where(NotificationPreference.user_id.in_(user_ids), NotificationPreference.enabled.is_(False))) or 0
