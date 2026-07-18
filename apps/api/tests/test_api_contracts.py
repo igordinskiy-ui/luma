@@ -1,9 +1,11 @@
-from app.api_time import to_utc_naive, utc_iso
+from app.api_time import to_utc_naive, utc_epoch, utc_iso, utc_now
 from app.schemas import ConsentIn, CopingSessionCreateIn, CopingSessionPatchIn, EventIn, EventOut, OidcCompletionIn, OnboardingIn, PreferencesIn, PushSubscriptionIn, QuitPlanUpdateIn
 from datetime import datetime, timedelta, timezone
 from pydantic import ValidationError
 import pytest
 import base64
+from pathlib import Path
+import time
 
 def test_onboarding_rejects_empty_pack():
     with pytest.raises(ValidationError):
@@ -50,6 +52,21 @@ def test_public_datetimes_are_normalized_to_unambiguous_utc():
     assert utc_iso(to_utc_naive(local_instant)) == "2026-07-17T12:30:00Z"
     event = EventOut(id=1, kind="craving", trigger=None, intensity=3, note="", created_at=to_utc_naive(local_instant))
     assert '"created_at":"2026-07-17T12:30:00Z"' in event.model_dump_json()
+
+
+def test_runtime_utc_clock_is_naive_for_storage_and_epoch_is_timezone_independent():
+    before = time.time()
+    current = utc_now()
+    epoch = utc_epoch()
+    after = time.time()
+    assert current.tzinfo is None
+    assert before <= epoch <= after
+
+
+def test_production_runtime_does_not_use_deprecated_utcnow():
+    app_root = Path(__file__).parents[1] / "app"
+    offenders = [str(path.relative_to(app_root)) for path in app_root.rglob("*.py") if "datetime.utcnow()" in path.read_text(encoding="utf-8")]
+    assert offenders == []
 
 
 def test_quit_plan_numbers_are_bounded():

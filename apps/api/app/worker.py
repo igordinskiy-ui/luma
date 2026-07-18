@@ -8,6 +8,7 @@ from aiogram import Bot
 from redis.asyncio import Redis
 from sqlalchemy import and_, delete, or_, select, update
 from pywebpush import WebPushException, webpush
+from .api_time import utc_epoch, utc_now
 from .config import public_launch_open, settings, validate_security_settings
 from .db import SessionLocal
 from .models import AnalyticsEvent, Feedback, NotificationDelivery, OutboxEvent, PushSubscription, QuitPlan, User
@@ -20,7 +21,7 @@ MAX_ATTEMPTS = 5
 
 def retention_cleanup(now: datetime | None = None) -> dict[str, int]:
     """Delete only categories covered by configured retention periods."""
-    db = SessionLocal(); current = now or datetime.utcnow()
+    db = SessionLocal(); current = now or utc_now()
     try:
         statements = {
             "outbox": delete(OutboxEvent).where(OutboxEvent.status.in_(["processed", "failed"]), OutboxEvent.created_at < current - timedelta(days=settings.outbox_retention_days)),
@@ -35,7 +36,7 @@ def retention_cleanup(now: datetime | None = None) -> dict[str, int]:
 def claim_events() -> list[int]:
     db = SessionLocal()
     try:
-        now = datetime.utcnow()
+        now = utc_now()
         stale_before = now - timedelta(minutes=5)
         db.execute(update(OutboxEvent).where(OutboxEvent.status == "processing", OutboxEvent.locked_at < stale_before, OutboxEvent.attempts >= MAX_ATTEMPTS).values(status="failed", error="attempt_limit", locked_at=None))
         stale = and_(OutboxEvent.status == "processing", OutboxEvent.locked_at < stale_before, OutboxEvent.attempts < MAX_ATTEMPTS)
@@ -63,7 +64,7 @@ async def process_event(bot: Bot | None, event_id: int) -> None:
         try:
             if not bot: raise RuntimeError("Telegram delivery is not configured")
             await bot.send_message(int(user.telegram_id), intervention)
-            delivery.status, delivery.sent_at, event.status = "sent", datetime.utcnow(), "processed"
+            delivery.status, delivery.sent_at, event.status = "sent", utc_now(), "processed"
         except Exception as exc:
             subscriptions = list(db.scalars(select(PushSubscription).where(PushSubscription.user_id == user.id)))
             sent_web_push = False
@@ -83,7 +84,7 @@ async def process_event(bot: Bot | None, event_id: int) -> None:
                         # never terminate the shared worker.
                         continue
             if sent_web_push:
-                delivery.channel, delivery.status, delivery.sent_at, event.status = "web_push", "sent", datetime.utcnow(), "processed"
+                delivery.channel, delivery.status, delivery.sent_at, event.status = "web_push", "sent", utc_now(), "processed"
             else:
                 delivery.status = "failed"
                 # Provider exceptions can contain endpoints or response bodies.
@@ -91,7 +92,7 @@ async def process_event(bot: Bot | None, event_id: int) -> None:
                 if event.attempts >= MAX_ATTEMPTS: event.status = "failed"
                 else:
                     event.status = "pending"
-                    event.next_attempt_at = datetime.utcnow() + timedelta(minutes=2 ** event.attempts)
+                    event.next_attempt_at = utc_now() + timedelta(minutes=2 ** event.attempts)
         db.commit()
     finally: db.close()
 
@@ -117,7 +118,7 @@ async def process_once() -> int:
                             event.status = "failed"
                         else:
                             event.status = "pending"
-                            event.next_attempt_at = datetime.utcnow() + timedelta(minutes=2 ** event.attempts)
+                            event.next_attempt_at = utc_now() + timedelta(minutes=2 ** event.attempts)
                         db.commit()
                 finally:
                     db.close()
@@ -130,7 +131,7 @@ def schedule_checkins() -> int:
     if not public_launch_open(): return 0
     db = SessionLocal(); created = 0
     try:
-        now = datetime.utcnow()
+        now = utc_now()
         for plan in db.scalars(select(QuitPlan).where(QuitPlan.phase == "quit")):
             user = db.get(User, plan.user_id)
             if not user: continue
@@ -162,7 +163,7 @@ async def main():
                 try:
                     schedule_checkins()
                     await process_once()
-                    await redis.set("kurilka:worker:heartbeat", str(datetime.utcnow().timestamp()), ex=120)
+                    await redis.set("kurilka:worker:heartbeat", str(utc_epoch()), ex=120)
                     if time.monotonic() - last_retention >= 3600:
                         retention_cleanup()
                         last_retention = time.monotonic()

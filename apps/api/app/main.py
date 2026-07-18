@@ -1,7 +1,7 @@
 import json
 import hashlib
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from fastapi import Depends, FastAPI, HTTPException, Header, Query, Request, Response
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
@@ -19,7 +19,7 @@ from .journal import decode_cursor, encode_cursor
 from .session import issue_session, session_subject
 from .oidc import consume_browser_exchange, create_browser_exchange, exchange_code, start_url
 from .analytics import track
-from .api_time import to_utc_naive, utc_iso
+from .api_time import to_utc_naive, utc_epoch, utc_iso, utc_now
 from .observability import RequestLogMiddleware, bounded_ratio, metrics_text, normalized_request_id
 from .rate_limit import enforce
 from .features import FREE_BETA_FEATURES, has_feature
@@ -143,7 +143,7 @@ def accept_current_consent(db: Session, user: User, source: str) -> User:
     """Record one immutable proof for the exact version+digest under a user lock."""
     locked = db.scalar(select(User).where(User.id == user.id).with_for_update())
     if not locked: raise HTTPException(401, "Session user no longer exists")
-    now = datetime.utcnow()
+    now = utc_now()
     locked.consent_version = settings.legal_documents_version
     locked.consent_digest = settings.legal_documents_digest
     locked.consented_at = now
@@ -189,7 +189,7 @@ def internal_metrics(x_proxy_secret: str | None = Header(None, alias="X-Proxy-Se
     if not settings.proxy_shared_secret or x_proxy_secret != settings.proxy_shared_secret:
         raise HTTPException(404, "Not found")
     from redis import Redis
-    delivery_window = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(hours=24)
+    delivery_window = utc_now() - timedelta(hours=24)
     deliveries_terminal_24h = db.scalar(select(func.count(NotificationDelivery.id)).where(NotificationDelivery.status.in_(["sent", "failed"]), NotificationDelivery.created_at >= delivery_window)) or 0
     deliveries_failed_24h = db.scalar(select(func.count(NotificationDelivery.id)).where(NotificationDelivery.status == "failed", NotificationDelivery.created_at >= delivery_window)) or 0
     gauges = {
@@ -206,7 +206,7 @@ def internal_metrics(x_proxy_secret: str | None = Header(None, alias="X-Proxy-Se
     redis = Redis.from_url(settings.redis_url, decode_responses=True, socket_timeout=1)
     try:
         heartbeat = redis.get("kurilka:worker:heartbeat")
-        if heartbeat: gauges["kurilka_worker_heartbeat_age_seconds"] = max(0, int(datetime.utcnow().timestamp() - float(heartbeat)))
+        if heartbeat: gauges["kurilka_worker_heartbeat_age_seconds"] = max(0, int(utc_epoch() - float(heartbeat)))
     except Exception:
         pass
     finally:
@@ -310,7 +310,7 @@ def onboarding(payload: OnboardingIn, request: Request, user: User = Depends(cur
     plan.phase = payload.start_mode
     plan.target_quit_at = to_utc_naive(payload.target_quit_at) if payload.start_mode == "preparation" and payload.target_quit_at else None
     if plan.phase == "quit" and not plan.quit_started_at:
-        plan.quit_started_at = datetime.utcnow()
+        plan.quit_started_at = utc_now()
         start_attempt(db, user.id, plan.quit_started_at)
     if not db.scalar(select(NotificationPreference).where(NotificationPreference.user_id == user.id)):
         db.add(NotificationPreference(user_id=user.id))
@@ -346,19 +346,19 @@ def update_quit_plan(payload: QuitPlanUpdateIn, request: Request, user: User = D
         plan.phase = payload.phase
         if payload.phase == "quit" and previous_phase != "quit":
             plan.remaining = 0
-            plan.quit_started_at = datetime.utcnow()
+            plan.quit_started_at = utc_now()
             start_attempt(db, user.id, plan.quit_started_at)
         elif payload.phase == "paused" and previous_phase != "paused":
             plan.paused_from = previous_phase
             if previous_phase == "quit":
-                close_active_attempt(db, user.id, datetime.utcnow(), "paused")
+                close_active_attempt(db, user.id, utc_now(), "paused")
                 plan.quit_started_at = None
         if previous_phase == "paused" and payload.phase != "paused":
             plan.paused_from = None
     if payload.remaining is not None:
         plan.remaining = payload.remaining
         if plan.remaining == 0 and plan.phase == "last_pack":
-            plan.phase, plan.quit_started_at = "quit", datetime.utcnow()
+            plan.phase, plan.quit_started_at = "quit", utc_now()
             start_attempt(db, user.id, plan.quit_started_at)
     if payload.cigarettes_per_pack is not None: plan.cigarettes_per_pack = payload.cigarettes_per_pack
     if payload.pack_price is not None: plan.pack_price = payload.pack_price
@@ -373,12 +373,12 @@ def update_quit_plan(payload: QuitPlanUpdateIn, request: Request, user: User = D
 @app.get("/v1/dashboard", response_model=DashboardOut)
 def dashboard(user: User = Depends(current_consented_user), db: Session = Depends(get_db)):
     plan = plan_for(db, user); risk, intervention, triggers = assess(db, user.id)
-    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    now = utc_now()
     stats = journey_stats(db, user.id, now)
     seconds = stats.current_seconds if plan.phase == "quit" else 0
     avoided = max(0, int(seconds / 5400)) if plan.phase == "quit" else 0
     preparation_steps = PRE_QUIT_STEPS if plan.phase == "preparation" or (plan.phase == "last_pack" and plan.remaining <= 7) else []
-    recovery_active = bool(plan.recovery_until and plan.recovery_until > datetime.utcnow())
+    recovery_active = bool(plan.recovery_until and plan.recovery_until > utc_now())
     recovery_context = None
     if recovery_active:
         latest_relapse = db.scalar(select(BehaviorEvent).where(BehaviorEvent.user_id == user.id, BehaviorEvent.kind.in_(["relapse", "smoked"])).order_by(BehaviorEvent.created_at.desc()).limit(1))
@@ -409,10 +409,10 @@ def create_event(payload: EventIn, request: Request, user: User = Depends(curren
     if payload.kind == "smoked" and plan.phase == "last_pack":
         plan.remaining = max(0, plan.remaining - 1)
         if plan.remaining == 0:
-            plan.phase, plan.quit_started_at = "quit", datetime.utcnow()
+            plan.phase, plan.quit_started_at = "quit", utc_now()
             start_attempt(db, user.id, plan.quit_started_at)
     elif payload.kind in {"relapse", "smoked"} and plan.phase == "quit":
-        now = datetime.utcnow()
+        now = utc_now()
         close_active_attempt(db, user.id, now, "relapse")
         plan.quit_started_at = now
         start_attempt(db, user.id, now)
@@ -440,7 +440,7 @@ def update_event(event_id: int, payload: EventPatchIn, request: Request, user: U
     enforce(request, "behavior-event-update", 30, subject=user.id)
     event = db.scalar(select(BehaviorEvent).where(BehaviorEvent.id == event_id, BehaviorEvent.user_id == user.id))
     if not event: raise HTTPException(404, "Event not found")
-    if event.created_at < datetime.utcnow() - timedelta(minutes=15): raise HTTPException(409, "Event edit window has expired")
+    if event.created_at < utc_now() - timedelta(minutes=15): raise HTTPException(409, "Event edit window has expired")
     for key, value in payload.model_dump(exclude_unset=True).items(): setattr(event, key, value)
     db.commit(); db.refresh(event); return event
 
@@ -451,7 +451,7 @@ def delete_event(event_id: int, request: Request, user: User = Depends(current_c
     enforce(request, "behavior-event-delete", 20, subject=user.id)
     event = db.scalar(select(BehaviorEvent).where(BehaviorEvent.id == event_id, BehaviorEvent.user_id == user.id).with_for_update())
     if not event: raise HTTPException(404, "Event not found")
-    if event.created_at < datetime.utcnow() - timedelta(minutes=15): raise HTTPException(409, "Event edit window has expired")
+    if event.created_at < utc_now() - timedelta(minutes=15): raise HTTPException(409, "Event edit window has expired")
     plan = plan_for(db, user, locked=True)
 
     if event.kind == "relapse" and plan.phase != "quit":
@@ -566,7 +566,7 @@ def update_coping_session(session_id: int, payload: CopingSessionPatchIn, reques
     for key, value in changes.items():
         setattr(item, key, value)
     if next_status in {"completed", "abandoned"}:
-        item.completed_at = datetime.utcnow()
+        item.completed_at = utc_now()
     db.commit()
     db.refresh(item)
     return coping_session_out(item)
@@ -582,7 +582,7 @@ def journal(
     user: User = Depends(current_consented_user),
     db: Session = Depends(get_db),
 ):
-    now = datetime.utcnow()
+    now = utc_now()
     since = now - timedelta(days=7 if period == "7d" else 30) if period != "all" else None
     cursor_value = None
     if cursor:
@@ -705,7 +705,7 @@ def test_notification(request: Request, user: User = Depends(current_user), db: 
     has_push = bool(settings.vapid_private_key and db.scalar(select(PushSubscription.id).where(PushSubscription.user_id == user.id)))
     if not has_telegram and not has_push:
         raise HTTPException(409, "No notification channel is configured")
-    recent = db.scalar(select(OutboxEvent).where(OutboxEvent.user_id == user.id, OutboxEvent.topic == "notification.test", OutboxEvent.created_at >= datetime.utcnow() - timedelta(minutes=1), OutboxEvent.status.in_(["pending", "processing"])))
+    recent = db.scalar(select(OutboxEvent).where(OutboxEvent.user_id == user.id, OutboxEvent.topic == "notification.test", OutboxEvent.created_at >= utc_now() - timedelta(minutes=1), OutboxEvent.status.in_(["pending", "processing"])))
     if recent:
         return {"status": "queued", "request_id": recent.id, "duplicate": True}
     event = OutboxEvent(user_id=user.id, topic="notification.test", payload="{}")
@@ -767,7 +767,7 @@ def admin_overview(
 ):
     if source and source != "direct" and source not in approved_acquisition_sources():
         raise HTTPException(422, "Acquisition source is not allowlisted")
-    now = datetime.utcnow()
+    now = utc_now()
     since_24h = now - timedelta(hours=24)
     period_since = now - timedelta(days={"7d": 7, "30d": 30, "90d": 90}.get(period, 36500)) if period != "all" else None
     user_query = select(User)
@@ -864,7 +864,7 @@ def update_feedback(feedback_id: int, payload: FeedbackStatusIn, _: User = Depen
     if not item:
         raise HTTPException(404, "Feedback not found")
     item.status = payload.status
-    item.resolved_at = datetime.utcnow() if payload.status == "resolved" else None
+    item.resolved_at = utc_now() if payload.status == "resolved" else None
     db.commit()
     return {"id": item.id, "status": item.status}
 

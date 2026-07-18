@@ -7,6 +7,16 @@ they cross the API boundary; otherwise browsers interpret them as local time.
 from datetime import datetime, timezone
 
 
+def utc_now() -> datetime:
+    """Return the database's naive-UTC representation without deprecated APIs."""
+    return datetime.now(timezone.utc).replace(tzinfo=None)
+
+
+def utc_epoch() -> float:
+    """Return a timezone-independent Unix timestamp for runtime heartbeats."""
+    return datetime.now(timezone.utc).timestamp()
+
+
 def to_utc_naive(value: datetime) -> datetime:
     """Convert an aware instant to the database's naive-UTC representation."""
     if value.tzinfo is None:

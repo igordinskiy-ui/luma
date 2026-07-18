@@ -44,6 +44,7 @@ test('journal renders an RFC 3339 instant in the device timezone', async ({ brow
   }));
 
   await page.goto('/journal');
+  await expect(page.getByText('Время показано по часовому поясу этого устройства.', { exact: false })).toBeVisible();
   await expect(page.locator('time[datetime="2026-07-14T09:15:00Z"]')).toHaveText('12:15');
   await context.close();
 });

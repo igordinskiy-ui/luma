@@ -42,7 +42,7 @@ def test_scheduler_creates_history_only_for_currently_sendable_users(monkeypatch
     muted = add_quit_user(db, "schedule-muted", enabled=False)
     quiet = add_quit_user(db, "schedule-quiet", enabled=True, quiet_start=9, quiet_end=18)
     db.commit()
-    monkeypatch.setattr(worker, "datetime", TenUtc)
+    monkeypatch.setattr(worker, "utc_now", TenUtc.utcnow)
     monkeypatch.setattr(notifications, "datetime", TenUtc)
 
     assert worker.schedule_checkins() == 1
@@ -59,7 +59,7 @@ def test_scheduler_creates_history_only_for_currently_sendable_users(monkeypatch
     finally:
         check.close()
 
-    monkeypatch.setattr(worker, "datetime", FifteenUtc)
+    monkeypatch.setattr(worker, "utc_now", FifteenUtc.utcnow)
     monkeypatch.setattr(notifications, "datetime", FifteenUtc)
     assert worker.schedule_checkins() == 0
     db.close()
