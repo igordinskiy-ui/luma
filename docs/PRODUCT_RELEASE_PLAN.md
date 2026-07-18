@@ -183,6 +183,10 @@
 
 - 2026-07-18 — Stage 8 runtime clock hardening + UI/UX: все production-вызовы удаляемого `datetime.utcnow()` в API, feature policy и worker заменены единым naive-UTC clock, совместимым с текущей схемой БД. Heartbeat теперь пишет и сравнивает timezone-независимый Unix epoch; recovery, edit window, retention, notification retry и scheduler используют один временной контракт. Автотест запрещает возврат deprecated clock в `apps/api/app`. Журнал явно объясняет, что видимое время берётся из часового пояса устройства; Chromium на 390/430/768/1440 проверяет текст, `09:15Z → 12:15`, recovery и correction flow. Полный локальный proof: backend 165/165 без skip, Vitest 23/23, build 96.31 KB gzip JS, Playwright/axe/offline/performance/zoom/visual 153/153. Hosted evidence ожидается после отправки коммита.
 
+- 2026-07-18 — hosted runtime clock hardening: GitHub Actions run `29660753425` для revision `ec3d47e` полностью успешен — API, web, repository-security, containers/image/backup smoke и `deploy-production` завершились зелёными. Production deployment pipeline получил единый UTC clock, timezone-независимый heartbeat и журнал с явным пояснением локального времени.
+
+- 2026-07-18 — Stage 8 FastAPI lifespan + announced recovery UI: deprecated startup decorator удалён; fail-closed `validate_security_settings()` перенесён в поддерживаемый lifespan-контракт до приёма трафика, а отдельный тест фиксирует его подключение к приложению. UI/UX-итерация добавила assertive live announcement для истёкшей сессии и 5xx/503, polite — для rate-limit, offline и закрытого запуска, сохранив retry, request ID и безопасную feedback-ссылку. Полный локальный proof: backend 166/166 без skip и без `on_event` warning, Vitest 23/23, build 96.33 KB gzip JS, Playwright/axe/offline/performance/zoom/visual 153/153 на 390/430/768/1440. Hosted evidence ожидается после отправки коммита.
+
 ## Quality gates
 
 - Backend: unit, integration, ownership, idempotency, concurrency, rate limits,

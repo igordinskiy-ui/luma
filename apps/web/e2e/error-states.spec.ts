@@ -17,6 +17,7 @@ for (const state of states) {
     await page.route('**/api/v1/bootstrap', route => route.fulfill({ status: state.status, contentType: 'application/json', body: JSON.stringify({ error: { code: state.code, message: 'Safe public message', request_id: `request-${state.status}` } }) }));
     await page.goto('/app');
     await expect(page.getByRole('heading', { name: state.heading, level: 1 })).toBeVisible();
+    await expect(page.locator('main')).toHaveAttribute('aria-live', state.status === 429 ? 'polite' : 'assertive');
     await expect(page.getByText(`Код обращения: request-${state.status}`)).toBeVisible();
     if (state.status === 503) {
       await expect(page.getByRole('button', { name: 'Попробовать снова' })).toBeVisible();
@@ -39,6 +40,7 @@ test('closed public launch is explained without pretending that the service fail
   }));
   await page.goto('/app');
   await expect(page.getByRole('heading', { name: 'Готовим запуск', level: 1 })).toBeVisible();
+  await expect(page.locator('main')).toHaveAttribute('aria-live', 'polite');
   await expect(page.getByRole('link', { name: 'На главную' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Попробовать снова' })).toHaveCount(0);
   expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
@@ -52,6 +54,7 @@ test('network loss shows an offline state without asking to re-enter data', asyn
   await page.route('**/api/v1/bootstrap', route => route.abort('internetdisconnected'));
   await page.goto('/app');
   await expect(page.getByRole('heading', { name: 'Сейчас нет сети', level: 1 })).toBeVisible();
+  await expect(page.locator('main')).toHaveAttribute('aria-live', 'polite');
   await expect(page.getByText('останутся на устройстве', { exact: false })).toBeVisible();
   expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
 });

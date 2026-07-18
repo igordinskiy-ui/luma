@@ -1,6 +1,7 @@
 import json
 import hashlib
 import logging
+from contextlib import asynccontextmanager
 from datetime import datetime, timedelta
 from fastapi import Depends, FastAPI, HTTPException, Header, Query, Request, Response
 from fastapi.exceptions import RequestValidationError
@@ -29,7 +30,14 @@ from .notifications import can_send
 from .schemas import AuthIn, ClientTelemetryIn, ConsentIn, CopingSessionCreateIn, CopingSessionPatchIn, DashboardOut, EventIn, EventOut, EventPatchIn, FeedbackIn, FeedbackStatusIn, OidcCompletionIn, OnboardingIn, PreferencesIn, PushSubscriptionIn, QuitPlanUpdateIn
 from .bot import Bot, handle_update
 
-app = FastAPI(title="Luma API", version="0.2.0")
+
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+    """Fail closed before accepting traffic when production config is unsafe."""
+    validate_security_settings()
+    yield
+
+app = FastAPI(title="Luma API", version="0.2.0", lifespan=lifespan)
 app.add_middleware(CORSMiddleware, allow_origins=settings.cors_origins.split(","), allow_credentials=True, allow_methods=["*"], allow_headers=["Authorization", "Content-Type"])
 app.add_middleware(RequestLogMiddleware)
 logger = logging.getLogger("kurilka.api")
@@ -96,9 +104,6 @@ async def public_launch_gate(request: Request, call_next):
             content={"error": {"code": "public_launch_disabled", "message": "Luma is not open to users yet", "request_id": identifier}},
         )
     return await call_next(request)
-
-@app.on_event("startup")
-def check_configuration(): validate_security_settings()
 
 def plan_for(db: Session, user: User, *, locked: bool = False) -> QuitPlan:
     query = select(QuitPlan).where(QuitPlan.user_id == user.id)
