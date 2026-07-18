@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test';
 
 test('public landing stays inside local web-vitals guardrails', async ({ page }) => {
+  await page.route('**/api/v1/launch-status', route => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ public_launch_enabled: true }) }));
   await page.addInitScript(() => {
     const target = window as typeof window & { __pathVitals?: { cls: number; lcp: number; inp: number } };
     target.__pathVitals = { cls: 0, lcp: 0, inp: 0 };

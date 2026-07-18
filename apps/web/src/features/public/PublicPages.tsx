@@ -23,15 +23,20 @@ export function GuidePage({ guide }: { guide: GuideName }) {
 }
 
 export function Landing() {
-  const [publicLaunch, setPublicLaunch] = useState<boolean | null>(null);
+  const [launchState, setLaunchState] = useState<'loading' | 'open' | 'closed' | 'error'>('loading');
+  const checkLaunch = async () => {
+    setLaunchState('loading');
+    try { setLaunchState((await api.launchStatus()).public_launch_enabled ? 'open' : 'closed'); }
+    catch { setLaunchState('error'); }
+  };
   useEffect(() => {
     setMetadata('Luma', 'Немедицинский помощник на пути от последней пачки к жизни без сигарет — без стыда и обещаний невозможного.');
-    void api.launchStatus().then(status => setPublicLaunch(status.public_launch_enabled)).catch(() => setPublicLaunch(null));
+    void checkLaunch();
   }, []);
   return <main className="path-page path-landing">
     <header className="path-public-header"><a className="path-wordmark" href="/"><img className="path-brand-mark" src="/brand/luma-mark.svg" alt="" /><b>Luma</b></a>{import.meta.env.DEV && <a href="/dev/designs">Интерактивный интерфейс</a>}</header>
     <section className="path-landing-hero">
-      <div className="path-landing-copy"><span className="path-kicker">Немедицинский помощник</span><h1>Не идеальная жизнь.<br /><em>Следующий честный шаг.</em></h1><p>Поддержка на пути от последней пачки к жизни без сигарет — без стыда, давления и обещаний невозможного.</p><div className="path-landing-actions">{publicLaunch === false ? <button className="path-button primary" type="button" disabled>Готовим запуск</button> : <a className="path-button primary login" href="/api/v1/auth/oidc/start" onClick={event => { event.preventDefault(); beginOidcLogin(); }}>Войти через Telegram <span>→</span></a>}<a className="path-button ghost" href="#how">Как это работает</a></div><small>{publicLaunch === false ? 'Закрытый production preview: вход пока отключён.' : 'Работает как Telegram Mini App и обычное PWA.'}</small></div>
+      <div className="path-landing-copy"><span className="path-kicker">Немедицинский помощник</span><h1>Не идеальная жизнь.<br /><em>Следующий честный шаг.</em></h1><p>Поддержка на пути от последней пачки к жизни без сигарет — без стыда, давления и обещаний невозможного.</p><div className="path-landing-actions">{launchState === 'open' ? <a className="path-button primary login" href="/api/v1/auth/oidc/start" onClick={event => { event.preventDefault(); beginOidcLogin(); }}>Войти через Telegram <span>→</span></a> : launchState === 'error' ? <button className="path-button primary" type="button" onClick={() => void checkLaunch()}>Проверить доступ</button> : <button className="path-button primary" type="button" disabled>{launchState === 'closed' ? 'Готовим запуск' : 'Проверяем доступ…'}</button>}<a className="path-button ghost" href="#how">Как это работает</a></div><small aria-live="polite">{launchState === 'closed' ? 'Закрытый production preview: вход пока отключён.' : launchState === 'error' ? 'Не удалось проверить доступ. Можно повторить без перезагрузки страницы.' : launchState === 'loading' ? 'Проверяем, открыт ли вход…' : 'Работает как Telegram Mini App и обычное PWA.'}</small></div>
       <div className="path-landing-visual" aria-hidden="true"><div className="path-door"><span>8</span><small>дней пути</small></div><p>«Одна тяга —<br />не приказ»</p></div>
     </section>
     <section id="how" className="path-how"><header><span>Как это работает</span><h2>Опора на каждом отрезке</h2></header><div><article><i>01</i><h3>Отмечай честно</h3><p>Фиксируй сигареты и триггеры без оценки себя.</p></article><article><i>02</i><h3>Пережди волну</h3><p>Получи одно короткое действие на ближайшие минуты.</p></article><article><i>03</i><h3>Видь свой путь</h3><p>Накопленный прогресс не исчезает из-за сложного дня.</p></article></div></section>

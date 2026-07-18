@@ -187,6 +187,10 @@
 
 - 2026-07-18 — Stage 8 FastAPI lifespan + announced recovery UI: deprecated startup decorator удалён; fail-closed `validate_security_settings()` перенесён в поддерживаемый lifespan-контракт до приёма трафика, а отдельный тест фиксирует его подключение к приложению. UI/UX-итерация добавила assertive live announcement для истёкшей сессии и 5xx/503, polite — для rate-limit, offline и закрытого запуска, сохранив retry, request ID и безопасную feedback-ссылку. Полный локальный proof: backend 166/166 без skip и без `on_event` warning, Vitest 23/23, build 96.33 KB gzip JS, Playwright/axe/offline/performance/zoom/visual 153/153 на 390/430/768/1440. Hosted evidence ожидается после отправки коммита.
 
+- 2026-07-18 — hosted FastAPI lifespan/accessibility recovery: GitHub Actions run `29661061153` для revision `cb6705f` полностью успешен — API, web, repository-security, containers/image/backup smoke и `deploy-production` завершились зелёными. Production deployment pipeline использует поддерживаемый lifespan startup и объявляемые screen-reader recovery states.
+
+- 2026-07-18 — Stage 1/10 public PWA login gate + UI/UX: production preflight теперь требует полный Telegram OIDC client/secret/callback при `PUBLIC_LAUNCH_ENABLED=true`, поэтому релиз не может пройти с рабочим Mini App и сломанным PWA-входом; закрытый preview по-прежнему допускает отсутствие OIDC, но отклоняет частичную конфигурацию. Лендинг не показывает активный login CTA, пока launch-status не подтверждён; при сбое отображает спокойное объяснение и retry без перезагрузки, после успеха открывает единственное действие «Войти через Telegram». Полный локальный proof: backend 168/168 без skip, Vitest 23/23, build 96.42 KB gzip JS, Playwright/axe/offline/vitals/visual/zoom 157/157 на 390/430/768/1440 и 320 px equivalent. Hosted evidence ожидается после отправки коммита; реальные OIDC credentials и authorization-screen не подменяются.
+
 ## Quality gates
 
 - Backend: unit, integration, ownership, idempotency, concurrency, rate limits,

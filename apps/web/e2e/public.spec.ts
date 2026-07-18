@@ -1,6 +1,10 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test } from '@playwright/test';
 
+test.beforeEach(async ({ page }) => {
+  await page.route('**/api/v1/launch-status', route => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ public_launch_enabled: true }) }));
+});
+
 test('public landing is accessible and has one primary entry action', async ({ page }) => {
   await page.goto('/');
   await expect(page.getByRole('heading', { level: 1 })).toContainText('Следующий честный шаг');
@@ -17,6 +21,22 @@ test('production hides the development-only design route', async ({ page }) => {
   await page.goto('/?designs');
   await expect(page).toHaveURL(/\/$/);
   await expect(page.getByRole('heading', { level: 1 })).toContainText('Следующий честный шаг');
+});
+
+test('public landing never exposes login before launch status is verified and offers retry', async ({ page }) => {
+  await page.unroute('**/api/v1/launch-status');
+  let attempts = 0;
+  await page.route('**/api/v1/launch-status', route => {
+    attempts += 1;
+    return attempts === 1
+      ? route.fulfill({ status: 503, contentType: 'application/json', body: JSON.stringify({ error: { code: 'dependency_unavailable', message: 'Later', request_id: 'launch-check-1' } }) })
+      : route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ public_launch_enabled: true }) });
+  });
+  await page.goto('/');
+  await expect(page.getByRole('link', { name: /Войти через Telegram/ })).toHaveCount(0);
+  await expect(page.getByText('Не удалось проверить доступ.', { exact: false })).toBeVisible();
+  await page.getByRole('button', { name: 'Проверить доступ' }).click();
+  await expect(page.getByRole('link', { name: /Войти через Telegram/ })).toBeVisible();
 });
 
 test('public guides have unique metadata and no automated accessibility violations', async ({ page }) => {

@@ -69,9 +69,11 @@ def main() -> int:
     if public_origin(env.get("TELEGRAM_WEBAPP_URL", "")) not in origins:
         fail(errors, "TELEGRAM_WEBAPP_URL must be an HTTPS origin listed in CORS_ORIGINS")
     oidc_values = tuple(env.get(name, "") for name in ("TELEGRAM_OIDC_CLIENT_ID", "TELEGRAM_OIDC_CLIENT_SECRET", "TELEGRAM_OIDC_REDIRECT_URI"))
-    if any(oidc_values) and not all(oidc_values):
+    if public_launch and not all(oidc_values):
+        fail(errors, "TELEGRAM_OIDC variables are required together before public PWA launch")
+    elif any(oidc_values) and not all(oidc_values):
         fail(errors, "TELEGRAM_OIDC variables must be configured together")
-    elif all(oidc_values):
+    if all(oidc_values):
         redirect = urlsplit(oidc_values[2])
         redirect_origin = f"{redirect.scheme}://{redirect.netloc}" if redirect.scheme and redirect.netloc else None
         if redirect.scheme != "https" or redirect_origin not in origins or redirect.path != "/api/v1/auth/oidc/callback" or redirect.query or redirect.fragment:

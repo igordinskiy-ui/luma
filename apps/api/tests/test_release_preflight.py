@@ -42,6 +42,9 @@ def test_public_launch_rejects_pending_legal_fields_and_non_baseline_scoring(mon
     environment.update({
         "TELEGRAM_WEBHOOK_SECRET": "w" * 24,
         "TELEGRAM_BOT_TOKEN": "123456:production-token",
+        "TELEGRAM_OIDC_CLIENT_ID": "production-pwa-client",
+        "TELEGRAM_OIDC_CLIENT_SECRET": "o" * 32,
+        "TELEGRAM_OIDC_REDIRECT_URI": "https://app.example.test/api/v1/auth/oidc/callback",
         "CONTENT_REVIEW_STATUS": "approved",
         "CONTENT_APPROVED_DIGEST": release_content_digest(),
         "CONTENT_CATALOGUE_DIGEST": release_preflight.CONTENT_DIGEST,
@@ -58,3 +61,21 @@ def test_public_launch_rejects_pending_legal_fields_and_non_baseline_scoring(mon
     for name in ("consent.html", "privacy.html", "terms.html"):
         assert f"legal page is not approved: apps/web/public/{name}" in errors
     assert environment["TELEGRAM_BOT_TOKEN"] not in errors
+
+
+def test_public_launch_requires_oidc_for_the_pwa_login_path(monkeypatch, capsys):
+    environment = production_environment(public_launch=True)
+    monkeypatch.setattr(release_preflight.os, "environ", environment)
+
+    assert release_preflight.main() == 1
+    errors = capsys.readouterr().err
+    assert "TELEGRAM_OIDC variables are required together before public PWA launch" in errors
+
+
+def test_preview_rejects_a_partially_configured_oidc_client(monkeypatch, capsys):
+    environment = production_environment(public_launch=False)
+    environment["TELEGRAM_OIDC_CLIENT_ID"] = "preview-client"
+    monkeypatch.setattr(release_preflight.os, "environ", environment)
+
+    assert release_preflight.main() == 1
+    assert "TELEGRAM_OIDC variables must be configured together" in capsys.readouterr().err

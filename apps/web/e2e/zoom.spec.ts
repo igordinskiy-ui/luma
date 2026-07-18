@@ -10,6 +10,7 @@ const dashboard = {
 };
 
 test('@zoom public and app screens reflow at the 320px equivalent of 200% zoom', async ({ page }) => {
+  await page.route('**/api/v1/launch-status', route => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ public_launch_enabled: true }) }));
   await page.goto('/');
   await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(1);
