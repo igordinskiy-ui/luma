@@ -139,7 +139,7 @@ export class ApiError extends Error {
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const token = authToken();
   const response = await fetch(`${API}${path}`, { ...options, headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) } });
-  if (response.status === 401) clearSession();
+  if (response.status === 401 && authToken() === token) clearSession();
   if (!response.ok) {
     const fallback = `Request failed with status ${response.status}`;
     try {

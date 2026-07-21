@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { consumeOidcCompletion, OidcCompletionError, safeOidcReturnPath } from '../api';
+import { api, authenticateDevelopment, consumeOidcCompletion, OidcCompletionError, safeOidcReturnPath } from '../api';
 
 beforeEach(() => {
   sessionStorage.clear();
@@ -48,5 +48,25 @@ describe('OIDC completion recovery', () => {
     await expect(consumeOidcCompletion()).rejects.toMatchObject({ reason: 'expired', retryable: false } satisfies Partial<OidcCompletionError>);
     expect(sessionStorage.getItem('kurilka-oidc-pending')).toBeNull();
     expect(localStorage.getItem('kurilka-onboarding-draft-v2')).toBe('{"step":2}');
+  });
+});
+
+describe('bearer replacement race', () => {
+  it('does not let a late 401 from an old request erase a newer session', async () => {
+    sessionStorage.setItem('kurilka-access-token', 'old-session');
+    sessionStorage.setItem('kurilka-user-id', '41');
+    let finishOldRequest: (response: Response) => void = () => undefined;
+    const oldResponse = new Promise<Response>(resolve => { finishOldRequest = resolve; });
+    vi.spyOn(globalThis, 'fetch')
+      .mockReturnValueOnce(oldResponse)
+      .mockResolvedValueOnce(new Response(JSON.stringify({ access_token: 'new-session', token_type: 'bearer', user_id: 42 }), { status: 200, headers: { 'Content-Type': 'application/json' } }));
+
+    const staleTelemetry = api.clientTelemetry('session_started', '33333333-3333-4333-8333-333333333333');
+    await authenticateDevelopment();
+    finishOldRequest(new Response(JSON.stringify({ error: { code: 'invalid_session', message: 'Expired', request_id: 'late-401' } }), { status: 401, headers: { 'Content-Type': 'application/json' } }));
+
+    await expect(staleTelemetry).rejects.toMatchObject({ status: 401 });
+    expect(sessionStorage.getItem('kurilka-access-token')).toBe('new-session');
+    expect(sessionStorage.getItem('kurilka-user-id')).toBe('42');
   });
 });

@@ -42,3 +42,13 @@ def test_reset_removes_only_the_isolated_preview_database(monkeypatch, tmp_path)
 
     assert all(not path.exists() for path in preview_files)
     assert unrelated.read_text(encoding="utf-8") == "test"
+
+
+def test_preview_opens_in_default_browser_unless_disabled(monkeypatch):
+    opened = []
+    monkeypatch.setattr(run_test_preview.webbrowser, "open", opened.append)
+
+    run_test_preview.open_preview(no_open=False)
+    run_test_preview.open_preview(no_open=True)
+
+    assert opened == [f"http://127.0.0.1:{run_test_preview.WEB_PORT}/app"]

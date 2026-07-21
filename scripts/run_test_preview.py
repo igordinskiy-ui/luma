@@ -16,6 +16,7 @@ import subprocess
 import sys
 import time
 import urllib.request
+import webbrowser
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -75,12 +76,22 @@ def reset_database() -> None:
         raise RuntimeError("Preview database is still in use. Stop the previous preview and retry --reset.") from exc
 
 
+def open_preview(no_open: bool) -> None:
+    if not no_open:
+        webbrowser.open(f"http://127.0.0.1:{WEB_PORT}/app")
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run the isolated local Luma product preview.")
     parser.add_argument(
         "--reset",
         action="store_true",
         help="delete only .test-preview/preview.db before starting, then show onboarding from the beginning",
+    )
+    parser.add_argument(
+        "--no-open",
+        action="store_true",
+        help="do not open the ready preview in the default browser",
     )
     return parser.parse_args()
 
@@ -90,6 +101,7 @@ def main() -> int:
     STATE_DIR.mkdir(exist_ok=True)
     try:
         if not should_start(args.reset):
+            open_preview(args.no_open)
             print(f"Luma test preview is already running: http://127.0.0.1:{WEB_PORT}/app", flush=True)
             return 0
         if args.reset:
@@ -144,6 +156,7 @@ def main() -> int:
     try:
         wait_for(f"http://127.0.0.1:{API_PORT}/health", api)
         wait_for(f"http://127.0.0.1:{WEB_PORT}/app", web)
+        open_preview(args.no_open)
         print(f"Luma test preview: http://127.0.0.1:{WEB_PORT}/app", flush=True)
         print("Press Ctrl+C to stop. Use --reset next time to start onboarding again.", flush=True)
         while all(child.poll() is None for child in children):

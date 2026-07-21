@@ -22,7 +22,7 @@ export function App({ initialScreen = 'home', initialSupport = false }: { initia
   const [errorRequestId, setErrorRequestId] = useState<string | null>(null);
   const [authIssue, setAuthIssue] = useState<'session' | 'expired' | 'temporary'>('session');
   const [legalIdentity, setLegalIdentity] = useState({ version: '', digest: '' });
-  const refresh = async () => {
+  const loadProduct = async (allowDevelopmentRecovery: boolean): Promise<void> => {
     setErrorRequestId(null);
     if (authToken()) void api.clientTelemetry('session_started', clientSessionId()).catch(() => undefined);
     await syncQueued(currentUserId());
@@ -35,13 +35,21 @@ export function App({ initialScreen = 'home', initialSupport = false }: { initia
     } catch (error) {
       if (error instanceof ApiError) setErrorRequestId(error.requestId || null);
       if (!navigator.onLine || error instanceof TypeError) setState('offline');
-      else if (error instanceof ApiError && error.status === 401) { setAuthIssue('session'); setState('auth'); }
+      else if (error instanceof ApiError && error.status === 401) {
+        if (allowDevelopmentRecovery && import.meta.env.DEV && import.meta.env.VITE_TEST_PREVIEW === 'true') {
+          try { await authenticateDevelopment(); await loadProduct(false); }
+          catch { setState('service'); }
+          return;
+        }
+        setAuthIssue('session'); setState('auth');
+      }
       else if (error instanceof ApiError && error.status === 429) setState('rate');
       else if (error instanceof ApiError && error.status === 503 && error.code === 'public_launch_disabled') setState('maintenance');
       else if (error instanceof ApiError && error.status === 503) setState('service');
       else setState('error');
     }
   };
+  const refresh = (): Promise<void> => loadProduct(true);
 
   useEffect(() => {
     document.body.dataset.design = 'path';
@@ -53,12 +61,12 @@ export function App({ initialScreen = 'home', initialSupport = false }: { initia
         setAuthIssue(error instanceof OidcCompletionError && error.retryable ? 'temporary' : 'expired');
         setState('auth'); return;
       }
-      if (authToken()) { await refresh(); return; }
       if (import.meta.env.DEV && import.meta.env.VITE_TEST_PREVIEW === 'true') {
         try { await authenticateDevelopment(); await refresh(); }
         catch { setState('service'); }
         return;
       }
+      if (authToken()) { await refresh(); return; }
       if (!telegram?.initData) { setState('landing'); return; }
       authenticate(telegram.initData).then(refresh).catch(async () => {
         try { setState((await api.launchStatus()).public_launch_enabled ? 'auth' : 'maintenance'); }
