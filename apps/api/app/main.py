@@ -264,6 +264,20 @@ def telegram_auth(payload: AuthIn, request: Request, db: Session = Depends(get_d
         user.acquisition_source = acquisition_source; db.commit()
     return {"access_token": issue_session(user.id, user.auth_version), "token_type": "bearer", "user_id": user.id}
 
+@app.post("/v1/auth/development", include_in_schema=False)
+def development_auth(request: Request, db: Session = Depends(get_db)):
+    """Create a disposable local session for the isolated test preview only."""
+    if settings.app_environment != "development" or not settings.development_auth_enabled:
+        raise HTTPException(404, "Not found")
+    enforce(request, "development-auth", 10)
+    user = db.scalar(select(User).where(User.telegram_id == "local-test-preview"))
+    if not user:
+        user = User(telegram_id="local-test-preview")
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+    return {"access_token": issue_session(user.id, user.auth_version), "token_type": "bearer", "user_id": user.id}
+
 @app.get("/v1/auth/oidc/start")
 def oidc_start(client_state: str, request: Request):
     enforce(request, "oidc-start", 10)

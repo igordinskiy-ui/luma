@@ -81,6 +81,8 @@ def validate_security_settings() -> None:
         raise RuntimeError("SESSION_SECRET must contain at least 32 characters")
     if settings.app_environment != "production":
         return
+    if settings.development_auth_enabled:
+        raise RuntimeError("DEVELOPMENT_AUTH_ENABLED must be false in production")
     if len(settings.proxy_shared_secret) < 32: raise RuntimeError("PROXY_SHARED_SECRET must contain at least 32 characters")
     if not settings.database_url.startswith(("postgresql://", "postgresql+psycopg://")) or "change-me" in settings.database_url:
         raise RuntimeError("DATABASE_URL must point to a configured production database")

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { api, ApiError, authenticate, authToken, beginOidcLogin, consumeOidcCompletion, currentUserId, Dashboard, OidcCompletionError } from '../../api';
+import { api, ApiError, authenticate, authenticateDevelopment, authToken, beginOidcLogin, consumeOidcCompletion, currentUserId, Dashboard, OidcCompletionError } from '../../api';
 import { syncQueued } from '../../offline';
 import { initialiseTelegram } from '../../telegram';
 import { DashboardView } from '../journey/DashboardView';
@@ -54,6 +54,11 @@ export function App({ initialScreen = 'home', initialSupport = false }: { initia
         setState('auth'); return;
       }
       if (authToken()) { await refresh(); return; }
+      if (import.meta.env.DEV && import.meta.env.VITE_TEST_PREVIEW === 'true') {
+        try { await authenticateDevelopment(); await refresh(); }
+        catch { setState('service'); }
+        return;
+      }
       if (!telegram?.initData) { setState('landing'); return; }
       authenticate(telegram.initData).then(refresh).catch(async () => {
         try { setState((await api.launchStatus()).public_launch_enabled ? 'auth' : 'maintenance'); }

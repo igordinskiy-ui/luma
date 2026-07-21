@@ -48,6 +48,12 @@ export function clearSession() {
   sessionStorage.removeItem('kurilka-client-crash-reported');
 }
 
+export async function authenticateDevelopment() {
+  const response = await fetch(`${API}/auth/development`, { method: 'POST', headers: { 'Content-Type': 'application/json' } });
+  if (!response.ok) throw new ApiError(response.status, 'Development preview authentication is unavailable');
+  storeSession(await response.json());
+}
+
 export function beginOidcLogin() {
   const clientState = crypto.randomUUID();
   sessionStorage.removeItem(oidcPendingKey);

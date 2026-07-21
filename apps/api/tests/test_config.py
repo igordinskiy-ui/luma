@@ -43,6 +43,14 @@ def test_development_allows_unconfigured_external_services_with_session_secret(m
     monkeypatch.setattr(settings, "session_secret", "x" * 32)
     validate_security_settings()
 
+
+def test_production_rejects_development_auth_even_for_closed_preview(monkeypatch):
+    set_valid_production(monkeypatch)
+    monkeypatch.setattr(settings, "public_launch_enabled", False)
+    monkeypatch.setattr(settings, "development_auth_enabled", True)
+    with pytest.raises(RuntimeError, match="DEVELOPMENT_AUTH_ENABLED"):
+        validate_security_settings()
+
 def test_production_rejects_unknown_risk_engine(monkeypatch):
     set_valid_production(monkeypatch)
     monkeypatch.setattr(settings, "risk_engine_version", "unreviewed")

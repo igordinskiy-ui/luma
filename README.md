@@ -117,6 +117,7 @@ docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
 - [Authentication ADR](docs/ADR-001-authentication.md)
 - [Design system ADR](docs/ADR-002-path-design-system.md)
 - [Telegram setup](docs/TELEGRAM_SETUP.md)
+- [Isolated local product preview](docs/LOCAL_TEST_PREVIEW.md)
 
 ---
 

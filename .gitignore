@@ -37,6 +37,8 @@ playwright.config.js
 playwright.config.d.ts
 
 # Runtime data and logs
+.test-preview/
+.tools/
 *.db
 *.db-shm
 *.db-wal
