@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api, currentUserId, Dashboard, EventInput, eventId, RelapseContext } from '../../api';
 import { enqueue } from '../../offline';
@@ -65,6 +65,8 @@ export function DashboardView({ dashboard, refresh, initialScreen = 'home', init
   const [relapseContext, setRelapseContext] = useState<RelapseContext>('one');
   const [phaseBusy, setPhaseBusy] = useState(false);
   const [relapseBusy, setRelapseBusy] = useState(false);
+  const [eventBusy, setEventBusy] = useState(false);
+  const eventBusyRef = useRef(false);
   const isQuit = dashboard.phase === 'quit';
   const changeScreen = (next: 'home' | 'journal' | 'settings') => {
     setScreen(next);
@@ -72,6 +74,9 @@ export function DashboardView({ dashboard, refresh, initialScreen = 'home', init
   };
 
   const record = async (kind: EventInput['kind'], relapse_context?: RelapseContext) => {
+    if (eventBusyRef.current) return false;
+    eventBusyRef.current = true;
+    setEventBusy(true);
     const entry: EventInput = { kind, trigger, note, client_event_id: eventId(), relapse_context };
     try {
       const result = await api.event(entry);
@@ -82,10 +87,14 @@ export function DashboardView({ dashboard, refresh, initialScreen = 'home', init
     } catch (error) {
       if (!navigator.onLine || error instanceof TypeError) {
         enqueue(currentUserId(), entry);
+        setNote('');
         setNotice('Запись сохранена на устройстве и синхронизируется при появлении сети.');
         return true;
       } else setNotice('Не удалось сохранить запись. Попробуй ещё раз.');
       return false;
+    } finally {
+      eventBusyRef.current = false;
+      setEventBusy(false);
     }
   };
 
@@ -134,7 +143,7 @@ export function DashboardView({ dashboard, refresh, initialScreen = 'home', init
     {dashboard.phase === 'paused' ? <section className="path-phase-control resume"><div><span className="path-kicker">Точка сохранена</span><h2>Продолжить {dashboard.paused_from === 'preparation' ? 'подготовку' : dashboard.paused_from === 'last_pack' ? 'последнюю пачку' : 'период без сигарет'}?</h2><p>Записи и лучший результат остались в истории.</p></div><button className="path-button primary" disabled={phaseBusy} type="button" onClick={() => void changePhase(dashboard.paused_from || (dashboard.remaining > 0 ? 'last_pack' : 'quit'))}>{phaseBusy ? 'Возвращаемся…' : 'Продолжить путь'} <span>→</span></button></section> : <div className="path-phase-control pause"><span>Нужна более длинная передышка?</span><button type="button" onClick={() => setPauseOpen(true)}>Поставить путь на паузу</button></div>}
     {dashboard.recovery_until && <RecoveryCard until={dashboard.recovery_until} steps={dashboard.recovery_steps} />}
     {!dashboard.recovery_until && <PreparationCard steps={dashboard.preparation_steps} />}
-    {!isQuit && dashboard.phase !== 'paused' && <section className="path-checkin-card"><header><span className="path-kicker">Честная отметка</span><h2>Что произошло сейчас?</h2></header><div className="path-trigger-list">{triggers.map(([id, label]) => <button aria-pressed={trigger === id} type="button" className={trigger === id ? 'active' : ''} key={id} onClick={() => setTrigger(id)}>{label}</button>)}</div><label>Заметка <span>необязательно</span><textarea value={note} onChange={event => setNote(event.target.value)} placeholder="Коротко опиши момент. Не указывай медицинские данные." maxLength={1000} /></label><button className="path-button quiet" type="button" onClick={() => record('smoked')}>Отметить сигарету <span>→</span></button></section>}
+    {!isQuit && dashboard.phase !== 'paused' && <section className="path-checkin-card" aria-busy={eventBusy}><header><span className="path-kicker">Честная отметка</span><h2>Что произошло сейчас?</h2></header><div className="path-trigger-list">{triggers.map(([id, label]) => <button disabled={eventBusy} aria-pressed={trigger === id} type="button" className={trigger === id ? 'active' : ''} key={id} onClick={() => setTrigger(id)}>{label}</button>)}</div><label>Заметка <span>необязательно</span><textarea disabled={eventBusy} value={note} onChange={event => setNote(event.target.value)} placeholder="Коротко опиши момент. Не указывай медицинские данные." maxLength={1000} /></label><button className="path-button quiet" disabled={eventBusy} type="button" onClick={() => void record('smoked')}>{eventBusy ? 'Сохраняем отметку…' : 'Отметить сигарету'} <span>→</span></button></section>}
     {isQuit && <section className="path-reason-card"><span className="path-kicker">Твоя опора</span><blockquote>{dashboard.reasons || 'Продолжать этот путь в своём темпе.'}</blockquote><button type="button" onClick={() => setRelapseOpen(true)}>Отметить срыв без стыда</button></section>}
     <section className="path-guidance" aria-live="polite"><span>{notice ? 'Обновление' : 'Следующий шаг'}</span><p>{notice || dashboard.intervention}</p>{dashboard.recent_triggers.length > 0 && <small>Недавно отмечалось: {dashboard.recent_triggers.map(triggerLabel).join(' · ')}</small>}</section>
     <nav className="path-bottom-nav" aria-label="Основная навигация"><button className="active" type="button" onClick={() => changeScreen('home')}><span>⌂</span>Сегодня</button><button className="support" type="button" onClick={() => setSupportOpen(true)}><span>＋</span>Поддержка</button><button type="button" onClick={() => changeScreen('journal')}><span>≡</span>Журнал</button></nav>

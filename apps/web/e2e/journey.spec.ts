@@ -10,6 +10,81 @@ const initialDashboard: Dashboard = {
   preparation_steps: [], recovery_until: null, recovery_steps: [], target_quit_at: null,
 };
 
+test('one rapid check-in gesture creates exactly one cigarette event', async ({ page }) => {
+  await page.addInitScript(() => {
+    sessionStorage.setItem('kurilka-access-token', 'journey-single-flight-token');
+    sessionStorage.setItem('kurilka-user-id', '42');
+  });
+  const dashboard: Dashboard = { ...initialDashboard };
+  const events: Record<string, unknown>[] = [];
+  let releaseEvent!: () => void;
+  const eventGate = new Promise<void>(resolve => { releaseEvent = resolve; });
+  await page.route('**/api/v1/bootstrap', route => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ age_confirmed: true, consent_current: true, onboarded: true }) }));
+  await page.route('**/api/v1/dashboard', route => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(dashboard) }));
+  await page.route('**/api/v1/events', async route => {
+    events.push(await route.request().postDataJSON());
+    await eventGate;
+    dashboard.remaining -= 1;
+    await route.fulfill({ status: 201, contentType: 'application/json', body: JSON.stringify({ intervention: 'Счётчик обновлён без оценки.' }) });
+  });
+
+  await page.goto('/app');
+  const note = page.getByRole('textbox', { name: /Заметка/ });
+  await note.fill('После кофе');
+  const submit = page.getByRole('button', { name: 'Отметить сигарету →' });
+  await submit.evaluate((button: HTMLButtonElement) => { button.click(); button.click(); });
+
+  const busySubmit = page.getByRole('button', { name: 'Сохраняем отметку… →' });
+  await expect(busySubmit).toBeDisabled();
+  await expect(note).toBeDisabled();
+  await expect.poll(() => events.length).toBe(1);
+  expect(events[0]).toMatchObject({ kind: 'smoked', trigger: 'stress', note: 'После кофе' });
+  expect((await new AxeBuilder({ page }).include('.path-checkin-card').analyze()).violations).toEqual([]);
+
+  releaseEvent();
+  await expect(page.getByRole('heading', { name: 'Осталось 6', level: 1 })).toBeVisible();
+  await expect(note).toHaveValue('');
+  expect(events).toHaveLength(1);
+});
+
+test('a failed check-in preserves the note and allows an intentional retry', async ({ page }) => {
+  await page.addInitScript(() => {
+    sessionStorage.setItem('kurilka-access-token', 'journey-retry-token');
+    sessionStorage.setItem('kurilka-user-id', '42');
+  });
+  const dashboard: Dashboard = { ...initialDashboard };
+  const events: Record<string, unknown>[] = [];
+  await page.route('**/api/v1/bootstrap', route => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ age_confirmed: true, consent_current: true, onboarded: true }) }));
+  await page.route('**/api/v1/dashboard', route => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(dashboard) }));
+  await page.route('**/api/v1/events', async route => {
+    events.push(await route.request().postDataJSON());
+    if (events.length === 1) {
+      return route.fulfill({ status: 503, contentType: 'application/json', body: JSON.stringify({ error: { code: 'temporarily_unavailable', message: 'Later', request_id: 'journey-retry-e2e' } }) });
+    }
+    dashboard.remaining -= 1;
+    return route.fulfill({ status: 201, contentType: 'application/json', body: JSON.stringify({ intervention: 'Счётчик обновлён без оценки.' }) });
+  });
+
+  await page.goto('/app');
+  await page.getByRole('button', { name: 'Кофе' }).click();
+  const note = page.getByRole('textbox', { name: /Заметка/ });
+  await note.fill('Утренний ритуал');
+  const submit = page.getByRole('button', { name: 'Отметить сигарету →' });
+  await submit.click();
+
+  await expect(page.getByText('Не удалось сохранить запись. Попробуй ещё раз.')).toBeVisible();
+  await expect(note).toBeEnabled();
+  await expect(note).toHaveValue('Утренний ритуал');
+  await expect(page.getByRole('button', { name: 'Кофе' })).toHaveAttribute('aria-pressed', 'true');
+  await expect(submit).toBeEnabled();
+
+  await submit.click();
+  await expect(page.getByRole('heading', { name: 'Осталось 6', level: 1 })).toBeVisible();
+  await expect(note).toHaveValue('');
+  expect(events).toHaveLength(2);
+  expect(events[1]).toMatchObject({ kind: 'smoked', trigger: 'coffee', note: 'Утренний ритуал' });
+});
+
 test('journey moves from last pack through pause, resume and recovery without losing history', async ({ page }) => {
   await page.addInitScript(() => {
     sessionStorage.setItem('kurilka-access-token', 'journey-e2e-token');
