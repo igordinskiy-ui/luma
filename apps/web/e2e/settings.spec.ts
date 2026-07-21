@@ -42,12 +42,47 @@ test('settings exports data and revokes the device session on logout', async ({ 
   expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
 
   await page.getByRole('button', { name: /Выйти со всех устройств/ }).click();
+  const logoutDialog = page.getByRole('dialog', { name: 'Выйти со всех устройств?' });
+  await expect(logoutDialog).toBeVisible();
+  await expect(logoutDialog.getByRole('button', { name: 'Остаться' })).toBeFocused();
+  expect((await new AxeBuilder({ page }).include('.path-support-sheet').analyze()).violations).toEqual([]);
+  await logoutDialog.getByRole('button', { name: 'Выйти со всех устройств', exact: true }).click();
   await expect(page).toHaveURL(/\/$/);
   expect(state.logoutCalls).toBe(1);
-  expect(state.pushDeletes).toBe(1);
+  expect(state.pushDeletes).toBe(0);
   expect(await page.evaluate(() => sessionStorage.getItem('kurilka-access-token'))).toBeNull();
   expect(await page.evaluate(() => sessionStorage.getItem('kurilka-client-session-id'))).toBeNull();
   expect(await page.evaluate(() => sessionStorage.getItem('kurilka-client-crash-reported'))).toBeNull();
+});
+
+test('failed global logout keeps the session and offers a safe retry', async ({ page }) => {
+  const state = { deleted: false, logoutCalls: 0, pushDeletes: 0 };
+  await mockSettingsApi(page, state);
+  await page.unroute('**/api/v1/logout');
+  let releaseLogout!: () => void;
+  const logoutGate = new Promise<void>(resolve => { releaseLogout = resolve; });
+  await page.route('**/api/v1/logout', async route => {
+    state.logoutCalls += 1;
+    await logoutGate;
+    await route.fulfill({ status: 503, contentType: 'application/json', body: JSON.stringify({ error: { code: 'logout_failed', message: 'Later', request_id: 'logout-e2e' } }) });
+  });
+  await page.goto('/settings');
+
+  await page.getByRole('button', { name: /Выйти со всех устройств/ }).click();
+  const dialog = page.getByRole('dialog', { name: 'Выйти со всех устройств?' });
+  await dialog.getByRole('button', { name: 'Выйти со всех устройств', exact: true }).click();
+
+  await expect(dialog.getByRole('button', { name: 'Закрываем сеансы…' })).toBeDisabled();
+  await expect(dialog.getByRole('button', { name: 'Остаться' })).toBeDisabled();
+  await expect(dialog.getByRole('button', { name: 'Закрыть' })).toBeDisabled();
+  expect(state.logoutCalls).toBe(1);
+  releaseLogout();
+  await expect(dialog).toBeVisible();
+  await expect(dialog.getByRole('button', { name: 'Выйти со всех устройств', exact: true })).toBeEnabled();
+  await expect(page.getByRole('status')).toContainText('Этот сеанс оставлен на месте');
+  expect(state.logoutCalls).toBe(1);
+  expect(await page.evaluate(() => sessionStorage.getItem('kurilka-access-token'))).toBe('settings-e2e-token');
+  expect((await new AxeBuilder({ page }).include('.path-support-sheet').analyze()).violations).toEqual([]);
 });
 
 test('account deletion requires typed confirmation and a returning user sees onboarding', async ({ page }) => {

@@ -305,8 +305,13 @@ def oidc_complete(payload: OidcCompletionIn, request: Request):
 
 @app.post("/v1/logout", status_code=204)
 def logout(request: Request, user: User = Depends(current_user), db: Session = Depends(get_db)):
-    """Invalidate every bearer issued with the current auth version."""
+    """Atomically revoke every bearer and remove every web-push device."""
     enforce(request, "logout", 10, subject=user.id)
+    # Keep the same barrier as unsubscribe/erasure so a successful global
+    # logout cannot race with an already-started provider attempt.
+    lock_delivery_barrier(db, user.id)
+    for subscription in db.scalars(select(PushSubscription).where(PushSubscription.user_id == user.id)):
+        db.delete(subscription)
     user.auth_version += 1
     db.commit()
     return Response(status_code=204)

@@ -23,6 +23,8 @@ export function SettingsView({ onBack }: { onBack: () => void }) {
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deletePhrase, setDeletePhrase] = useState('');
   const [deleteBusy, setDeleteBusy] = useState(false);
+  const [logoutOpen, setLogoutOpen] = useState(false);
+  const [logoutBusy, setLogoutBusy] = useState(false);
   const [message, setMessage] = useState('');
   const [planError, setPlanError] = useState('');
   const [preferencesReady, setPreferencesReady] = useState(false);
@@ -118,22 +120,36 @@ export function SettingsView({ onBack }: { onBack: () => void }) {
     }
   };
 
-  const clearDeviceSession = async () => {
+  const clearLocalDevice = async () => {
     try {
       const registration = 'serviceWorker' in navigator ? await navigator.serviceWorker.ready : null;
       await (await registration?.pushManager.getSubscription())?.unsubscribe();
-      await api.deletePush();
-    } catch { /* local unsubscribe still invalidates delivery to this browser */ }
-    try { await api.logout(); } catch { /* local cleanup still removes this device token */ }
+    } catch { /* server-side logout/erasure remains the durable cleanup boundary */ }
     const userId = currentUserId();
     clearQueued(userId); clearSession(); localStorage.removeItem(onboardingDraftKey);
   };
 
-  const logout = async () => { await clearDeviceSession(); location.assign('/'); };
+  const logout = async () => {
+    if (logoutBusy) return;
+    setLogoutBusy(true);
+    try {
+      await api.logout();
+      await clearLocalDevice();
+      location.assign('/');
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 401) {
+        await clearLocalDevice();
+        location.assign('/');
+        return;
+      }
+      setLogoutBusy(false);
+      setMessage('Не удалось выйти со всех устройств. Этот сеанс оставлен на месте — проверь соединение и повтори.');
+    }
+  };
   const eraseAccount = async () => {
     if (deletePhrase !== 'УДАЛИТЬ' || deleteBusy) return;
     setDeleteBusy(true);
-    try { await api.erase(); await clearDeviceSession(); location.assign('/'); }
+    try { await api.erase(); await clearLocalDevice(); location.assign('/'); }
     catch { setDeleteBusy(false); setMessage('Не удалось удалить аккаунт. Данные не изменены — попробуй ещё раз.'); }
   };
 
@@ -143,8 +159,9 @@ export function SettingsView({ onBack }: { onBack: () => void }) {
     {plan && <section className="path-settings-card"><header><div><span>План</span><h2>Твоя опора</h2></div></header><label>Почему это важно<textarea maxLength={2000} value={plan.reasons} onChange={event => setPlan({ ...plan, reasons: event.target.value })} /></label><div className="path-field-grid"><label>Сигарет в пачке<input type="number" required min="1" max="100" aria-describedby="plan-number-help" aria-invalid={Boolean(planError)} value={plan.cigarettes_per_pack} onChange={event => { setPlanError(''); setPlan({ ...plan, cigarettes_per_pack: Number(event.target.value) }); }} /></label><label>Цена пачки, ₽<input type="number" required min="0" max="1000000" step="0.01" aria-describedby="plan-number-help" aria-invalid={Boolean(planError)} value={plan.pack_price} onChange={event => { setPlanError(''); setPlan({ ...plan, pack_price: Number(event.target.value) }); }} /></label></div><p className="path-setting-explainer" id="plan-number-help">Эти значения меняют только будущие приблизительные расчёты. События и лучший период остаются на месте.</p>{plan.phase === 'preparation' && <label>Дата старта<input type="datetime-local" required min={localDateTimeValue(Date.now() + 5 * 60_000)} aria-describedby="plan-date-help" aria-invalid={Boolean(planError)} value={plan.target_quit_at ? localDateTimeValue(plan.target_quit_at) : ''} onChange={event => { setPlanError(''); setPlan({ ...plan, target_quit_at: event.target.value ? new Date(event.target.value).toISOString() : null }); }} /><small className="path-helper" id="plan-date-help">Время указано по часовому поясу этого устройства. Его можно изменить до начала пути.</small></label>}{planError && <p className="path-alert error" role="alert">{planError}</p>}<button className="path-button primary" type="button" onClick={() => void savePlan()}>Сохранить план <span>→</span></button></section>}
     <section className="path-settings-card" aria-busy={!preferencesReady}><header><div><span>Напоминания</span><h2>Поддерживающие сообщения</h2></div><label className="path-switch"><span className="sr-only">Разрешить поддерживающие сообщения</span><input type="checkbox" disabled={!preferencesReady} checked={preferences.enabled} onChange={event => setPreferences({ ...preferences, enabled: event.target.checked })} /><i /></label></header>{!preferencesReady && <p className="path-setting-loading" role="status">Загружаем сохранённое расписание…</p>}<p className="path-setting-explainer">Если включить сообщения, мы напомним о выбранном шаге — без заметок, причин и других личных подробностей. Сначала сохрани расписание, затем выбери канал.</p><label>Максимум сообщений в день<select disabled={!preferencesReady} value={preferences.max_daily} onChange={event => setPreferences({ ...preferences, max_daily: Number(event.target.value) })}>{[0, 1, 2, 3, 4, 5, 6].map(value => <option key={value} value={value}>{value === 0 ? 'Не отправлять' : value}</option>)}</select></label><div className="path-field-grid"><label>Не беспокоить с<input type="number" disabled={!preferencesReady} min="0" max="23" value={preferences.quiet_start} onChange={event => setPreferences({ ...preferences, quiet_start: Number(event.target.value) })} /></label><label>до<input type="number" disabled={!preferencesReady} min="0" max="23" value={preferences.quiet_end} onChange={event => setPreferences({ ...preferences, quiet_end: Number(event.target.value) })} /></label></div><button type="button" disabled={!preferencesReady} className="path-button primary" onClick={saveNotificationPreferences}>Сохранить расписание <span>→</span></button><div className="path-channel-card"><div><span>Telegram</span><b>{channel?.telegram === 'available' ? 'Доступен' : 'Не настроен'}</b></div><div><span>Web push</span><b>{channel?.web_push === 'subscribed' ? 'Подключён' : 'Не подключён'}</b></div></div><div className="path-notification-actions"><button type="button" disabled={!preferencesReady} className="path-button ghost" onClick={enablePush}>Подключить web push</button>{channel?.web_push === 'subscribed' && <button type="button" className="path-button ghost" onClick={disablePush}>Отключить web push</button>}<button type="button" className="path-button quiet" disabled={!preferencesReady || !preferences.enabled} onClick={sendTest}>Отправить тест</button></div></section>
     {message && <p className="path-alert" role="status">{message}</p>}
-    <section className="path-settings-card path-settings-list"><header><div><span>Данные и помощь</span><h2>Управление</h2></div></header><button type="button" onClick={exportData}><span><b>Экспортировать данные</b><small>Скачать полную копию в JSON</small></span><strong>→</strong></button><a href="/feedback"><span><b>Обратная связь</b><small>Идея, проблема или вопрос</small></span><strong>→</strong></a><a href="/privacy.html"><span><b>Конфиденциальность</b><small>Как мы работаем с данными</small></span><strong>→</strong></a><a href="/terms.html"><span><b>Условия использования</b></span><strong>→</strong></a><button type="button" onClick={logout}><span><b>Выйти со всех устройств</b><small>Отозвать bearer-сессии, очистить очередь и push этого устройства</small></span><strong>→</strong></button></section>
+    <section className="path-settings-card path-settings-list"><header><div><span>Данные и помощь</span><h2>Управление</h2></div></header><button type="button" onClick={exportData}><span><b>Экспортировать данные</b><small>Скачать полную копию в JSON</small></span><strong>→</strong></button><a href="/feedback"><span><b>Обратная связь</b><small>Идея, проблема или вопрос</small></span><strong>→</strong></a><a href="/privacy.html"><span><b>Конфиденциальность</b><small>Как мы работаем с данными</small></span><strong>→</strong></a><a href="/terms.html"><span><b>Условия использования</b></span><strong>→</strong></a><button type="button" onClick={() => { setLogoutBusy(false); setLogoutOpen(true); }}><span><b>Выйти со всех устройств</b><small>Закрыть все сеансы и удалить web-push подписки</small></span><strong>→</strong></button></section>
     <section className="path-danger-zone"><h2>Удаление аккаунта</h2><p>Активные данные, очереди и подписки будут удалены. Ротация резервных копий описана в политике хранения.</p><button type="button" onClick={() => { setDeletePhrase(''); setDeleteBusy(false); setDeleteOpen(true); }}>Удалить аккаунт</button></section>
+    <PathDialog open={logoutOpen} onClose={() => { if (!logoutBusy) setLogoutOpen(false); }} labelledBy="logout-title"><div aria-busy={logoutBusy}><header><div><span className="path-kicker">Без потери данных</span><h2 id="logout-title">Выйти со всех устройств?</h2></div><button type="button" disabled={logoutBusy} aria-label="Закрыть" onClick={() => setLogoutOpen(false)}>×</button></header><p>Все текущие сеансы будут закрыты, а web-push подписки удалены. План и журнал останутся на месте. Расписание Telegram можно отключить выше.</p><div className="path-state-actions"><button data-autofocus className="path-button ghost" disabled={logoutBusy} type="button" onClick={() => setLogoutOpen(false)}>Остаться</button><button className="path-button primary" disabled={logoutBusy} type="button" onClick={() => void logout()}>{logoutBusy ? 'Закрываем сеансы…' : 'Выйти со всех устройств'}</button></div></div></PathDialog>
     <PathDialog open={deleteOpen} onClose={() => { if (!deleteBusy) setDeleteOpen(false); }} labelledBy="delete-title"><div aria-busy={deleteBusy}><header><div><span className="path-kicker">Необратимое действие</span><h2 id="delete-title">Удалить весь путь?</h2></div><button type="button" disabled={deleteBusy} aria-label="Закрыть" onClick={() => setDeleteOpen(false)}>×</button></header><p>Экспортируй данные заранее, если хочешь сохранить копию. Для подтверждения введи <b>УДАЛИТЬ</b>.</p><label>Подтверждение<input data-autofocus disabled={deleteBusy} autoComplete="off" value={deletePhrase} onChange={event => setDeletePhrase(event.target.value)} /></label><button className="path-button danger" disabled={deletePhrase !== 'УДАЛИТЬ' || deleteBusy} type="button" onClick={eraseAccount}>{deleteBusy ? 'Удаляем аккаунт…' : 'Удалить аккаунт безвозвратно'}</button></div></PathDialog>
     <p className="path-medical-note">Если тебе плохо — обратись к врачу или в экстренную службу.</p>
   </main>;
